@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { PwaRegister } from '@/components/pwa-register';
 import { brand } from '@/config/brand';
+import { LanguageSelect, useLanguage } from '@/components/language-provider';
 
 const steps = [
   { title: 'How would you like to begin?', options: ['Type a message', 'Talk using my voice', 'I’m not sure yet'] },
@@ -14,6 +15,7 @@ const steps = [
 
 export default function Home() {
   const [step, setStep] = useState(-1);
+  const { t } = useLanguage();
   return (
     <main>
       <PwaRegister />
@@ -21,18 +23,17 @@ export default function Home() {
         <nav className="landing-nav" aria-label="Primary navigation">
           <Link href="/" className="brand"><span aria-hidden="true">✦</span> {brand.name}</Link>
           <div className="nav-actions">
-            <label className="sr-only" htmlFor="language">Language</label>
-            <select id="language" defaultValue="English"><option>English</option><option>हिन्दी</option><option>Hinglish</option></select>
-            <Link href="/crisis" className="urgent-link">Get urgent help</Link>
+            <LanguageSelect id="language" />
+            <Link href="/crisis" className="urgent-link">{t('urgentHelp')}</Link>
           </div>
         </nav>
         <div className="sky-orb orb-one" aria-hidden="true" /><div className="sky-orb orb-two" aria-hidden="true" />
         <div className="hero-content">
-          <p className="eyebrow">A quiet place to begin</p>
-          <h1 id="hero-title">You don’t have to face this moment alone.</h1>
-          <p className="hero-copy">Talk, type, or simply take a moment. Support begins at your pace.</p>
-          <div className="hero-actions"><button className="primary-button" onClick={() => setStep(0)}>Start Talking <span aria-hidden="true">→</span></button><Link href="/support" className="text-link">Explore support tools</Link></div>
-          <p className="privacy-note"><span aria-hidden="true">◌</span> Anonymous by default · Your prototype data stays on this device</p>
+          <p className="eyebrow">{t('heroEyebrow')}</p>
+          <h1 id="hero-title">{t('heroTitle')}</h1>
+          <p className="hero-copy">{t('heroCopy')}</p>
+          <div className="hero-actions"><button className="primary-button" onClick={() => setStep(0)}>{t('startTalking')} <span aria-hidden="true">→</span></button><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
+          <p className="privacy-note"><span aria-hidden="true">◌</span> {t('privacyNote')}</p>
         </div>
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
         {step >= 0 && <div className="modal-backdrop" role="presentation"><section className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
@@ -42,24 +43,24 @@ export default function Home() {
         </section></div>}
       </section>
       <section className="landing-content" aria-labelledby="how-title">
-        <div className="landing-section-head"><p className="eyebrow">Support without pressure</p><h2 id="how-title">Begin wherever you are.</h2><p>There is no right order and no account required. Take one step, pause, or leave whenever you choose.</p></div>
-        <div className="how-grid"><article><span>01</span><h3>Choose your pace</h3><p>Type, speak, explore a tool, or simply look around.</p></article><article><span>02</span><h3>Share what fits</h3><p>Answer optional prompts without giving your identity.</p></article><article><span>03</span><h3>Find a next step</h3><p>Receive a short, manageable suggestion—not a diagnosis.</p></article></div>
+        <div className="landing-section-head"><p className="eyebrow">{t('supportWithoutPressure')}</p><h2 id="how-title">{t('beginWhereYouAre')}</h2><p>{t('beginWhereCopy')}</p></div>
+        <div className="how-grid"><article><span>01</span><h3>{t('choosePace')}</h3><p>{t('choosePaceCopy')}</p></article><article><span>02</span><h3>{t('shareFits')}</h3><p>{t('shareFitsCopy')}</p></article><article><span>03</span><h3>{t('nextStep')}</h3><p>{t('nextStepCopy')}</p></article></div>
       </section>
-      <section className="landing-feature-band"><div className="landing-section-head"><p className="eyebrow">Different moments need different support</p><h2>Quiet tools, ready when you are.</h2></div><div className="landing-features">
-        <Link href="/chat"><MessageCircle/><h3>Text & voice conversations</h3><p>Talk with a calm local support simulation that listens one question at a time.</p><b>Start a conversation <ArrowRight/></b></Link>
-        <Link href="/privacy"><LockKeyhole/><h3>Private & anonymous</h3><p>No account or identity disclosure. You control what is stored in this browser.</p><b>See privacy controls <ArrowRight/></b></Link>
-        <Link href="/mood"><BookOpenText/><h3>Mood & journal tools</h3><p>Notice patterns and make space for thoughts without streaks or rewards.</p><b>Try a check-in <ArrowRight/></b></Link>
-        <Link href="/exercises"><Leaf/><h3>Guided wellbeing exercises</h3><p>Breathing, grounding, reframing, rest, and one manageable next step.</p><b>Explore exercises <ArrowRight/></b></Link>
-        <Link href="/safety-plan"><ShieldCheck/><h3>Safety & crisis support</h3><p>Prepare a personal safety plan and quickly reach verified resources.</p><b>Open safety tools <ArrowRight/></b></Link>
-        <Link href="/consultancy"><MapPinned/><h3>Find nearby professional care</h3><p>Explore prototype clinic and safety listings, then manage appointment requests.</p><b>Find care nearby <ArrowRight/></b></Link>
-        <Link href="/professional"><BriefcaseMedical/><h3>Professional care portal</h3><p>A dedicated workspace for counsellors, psychologists, and psychiatrists.</p><b>Open professional portal <ArrowRight/></b></Link>
-        <Link href="/about"><Languages/><h3>Cultural & language awareness</h3><p>Choose English, Hindi, or Hinglish in this prototype experience.</p><b>Learn about the approach <ArrowRight/></b></Link>
+      <section className="landing-feature-band"><div className="landing-section-head"><p className="eyebrow">{t('differentMoments')}</p><h2>{t('quietTools')}</h2></div><div className="landing-features">
+        <Link href="/chat"><MessageCircle/><h3>{t('textVoice')}</h3><p>{t('textVoiceCopy')}</p><b>{t('startConversation')} <ArrowRight/></b></Link>
+        <Link href="/privacy"><LockKeyhole/><h3>{t('privateAnonymous')}</h3><p>{t('privateAnonymousCopy')}</p><b>{t('privacyControls')} <ArrowRight/></b></Link>
+        <Link href="/mood"><BookOpenText/><h3>{t('moodJournalTools')}</h3><p>{t('moodJournalCopy')}</p><b>{t('tryCheckIn')} <ArrowRight/></b></Link>
+        <Link href="/exercises"><Leaf/><h3>{t('guidedWellbeing')}</h3><p>{t('guidedWellbeingCopy')}</p><b>{t('exploreExercises')} <ArrowRight/></b></Link>
+        <Link href="/safety-plan"><ShieldCheck/><h3>{t('safetyCrisis')}</h3><p>{t('safetyCrisisCopy')}</p><b>{t('openSafety')} <ArrowRight/></b></Link>
+        <Link href="/consultancy"><MapPinned/><h3>{t('nearbyCare')}</h3><p>{t('nearbyCareCopy')}</p><b>{t('findCareNearby')} <ArrowRight/></b></Link>
+        <Link href="/professional"><BriefcaseMedical/><h3>{t('professionalPortal')}</h3><p>{t('professionalPortalCopy')}</p><b>{t('openProfessional')} <ArrowRight/></b></Link>
+        <Link href="/about"><Languages/><h3>{t('languageAwareness')}</h3><p>{t('languageAwarenessCopy')}</p><b>{t('learnApproach')} <ArrowRight/></b></Link>
       </div></section>
-      <section className="landing-trust"><div className="trust-visual" aria-hidden="true"><span>✦</span><i/><b/></div><div><p className="eyebrow">Clarity builds trust</p><h2>Supportive, not clinical.</h2><p>Wellbeing Support is a frontend prototype. It does not diagnose, prescribe medication, monitor you, contact a counsellor, or dispatch emergency help. Your local choices remain yours.</p><div className="landing-link-row"><Link href="/trust">Read trust & limitations <ArrowRight/></Link><Link href="/privacy">Visit privacy center <ArrowRight/></Link></div></div></section>
-      <section className="landing-faq"><div><p className="eyebrow">Questions are welcome</p><h2>Clear answers, in plain language.</h2></div><div><details open><summary>Do I need to share my name?</summary><p>No. Anonymous mode is the default, and all identity fields stay empty unless you independently choose otherwise.</p></details><details><summary>Is this a therapist or diagnostic service?</summary><p>No. The conversation and wellbeing summaries are local, mocked, and non-diagnostic.</p></details><details><summary>Can it call emergency help automatically?</summary><p>No. You must clearly choose a phone link before your device starts a call.</p></details><Link className="text-link" href="/faq">See all frequently asked questions →</Link></div></section>
-      <section className="landing-cta"><span><Sparkles/></span><p className="eyebrow">A small beginning is enough</p><h2>You can start with one sentence.</h2><p>Share only what feels manageable right now.</p><button className="primary-button" onClick={()=>{setStep(0);window.scrollTo({top:0,behavior:'smooth'})}}>Start Talking <ArrowRight/></button></section>
-      <footer className="landing-footer"><Link href="/" className="brand"><span>✦</span>{brand.name}</Link><p>A frontend-only prototype. Not a replacement for professional or emergency care.</p><nav><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/trust">Limitations</Link><Link href="/faq">FAQ</Link></nav></footer>
-      <Link href="/crisis" className="urgent-fab"><span>!</span>Get urgent help</Link>
+      <section className="landing-trust"><div className="trust-visual" aria-hidden="true"><span>✦</span><i/><b/></div><div><p className="eyebrow">{t('clarityTrust')}</p><h2>{t('supportiveNotClinical')}</h2><p>{t('trustCopy')}</p><div className="landing-link-row"><Link href="/trust">{t('readTrust')} <ArrowRight/></Link><Link href="/privacy">{t('visitPrivacy')} <ArrowRight/></Link></div></div></section>
+      <section className="landing-faq"><div><p className="eyebrow">{t('questionsWelcome')}</p><h2>{t('plainAnswers')}</h2></div><div><details open><summary>{t('nameQuestion')}</summary><p>{t('nameAnswer')}</p></details><details><summary>{t('therapyQuestion')}</summary><p>{t('therapyAnswer')}</p></details><details><summary>{t('emergencyQuestion')}</summary><p>{t('emergencyAnswer')}</p></details><Link className="text-link" href="/faq">{t('seeFaq')} →</Link></div></section>
+      <section className="landing-cta"><span><Sparkles/></span><p className="eyebrow">{t('smallBeginning')}</p><h2>{t('oneSentence')}</h2><p>{t('oneSentenceCopy')}</p><button className="primary-button" onClick={()=>{setStep(0);window.scrollTo({top:0,behavior:'smooth'})}}>{t('startTalking')} <ArrowRight/></button></section>
+      <footer className="landing-footer"><Link href="/" className="brand"><span>✦</span>{brand.name}</Link><p>{t('footerCopy')}</p><nav><Link href="/about">{t('about')}</Link><Link href="/privacy">{t('privacy')}</Link><Link href="/trust">{t('limitations')}</Link><Link href="/faq">{t('faq')}</Link></nav></footer>
+      <Link href="/crisis" className="urgent-fab"><span>!</span>{t('urgentHelp')}</Link>
     </main>
   );
 }

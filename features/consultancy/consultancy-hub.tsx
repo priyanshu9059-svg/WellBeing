@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Building2, CalendarClock, Check, ChevronRight, Clock3, Cross, ExternalLink, LocateFixed, MapPin, Navigation, Phone, Search, Shield, Star, Stethoscope, Video, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Building2, CalendarClock, Check, ChevronRight, Clock3, Cross, LocateFixed, MapPin, Navigation, Phone, Search, Shield, Star, Stethoscope, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -30,11 +30,10 @@ export function ConsultancyHub(){
   const [locationMessage,setLocationMessage]=useState('');
   const [booking,setBooking]=useState<Place|null>(null);
   const [booked,setBooked]=useState(false);
-  const [appointments,setAppointments]=useState<Appointment[]>(initialAppointments);
+  const [appointments,setAppointments]=useState<Appointment[]>(()=>{try{const saved=localStorage.getItem('wellbeing-support:appointments');return saved?JSON.parse(saved):initialAppointments}catch{return initialAppointments}});
   const [date,setDate]=useState('2026-09-18');
   const [time,setTime]=useState('11:00 AM');
   const [mode,setMode]=useState('In person');
-  useEffect(()=>{try{const saved=localStorage.getItem('wellbeing-support:appointments');if(saved)setAppointments(JSON.parse(saved))}catch{}},[]);
   const saveAppointments=(next:Appointment[])=>{setAppointments(next);localStorage.setItem('wellbeing-support:appointments',JSON.stringify(next))};
   const visible=useMemo(()=>places.filter(p=>(filter==='All'||p.type===filter)&&`${p.name} ${p.area} ${p.specialties.join(' ')}`.toLowerCase().includes(query.toLowerCase())),[filter,query]);
   const useLocation=()=>{if(!navigator.geolocation){setLocationMessage('Location is not available in this browser.');return}setLocationMessage('Finding your area…');navigator.geolocation.getCurrentPosition(()=>{setLocation('Current location');setLocationMessage('Map centred near your current location.')},()=>setLocationMessage('Location was not shared. You can search an area instead.'))};
