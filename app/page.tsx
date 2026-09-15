@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, BookOpenText, Languages, Leaf, LockKeyhole, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { PwaRegister } from '@/components/pwa-register';
 import { brand } from '@/config/brand';
 
@@ -51,6 +51,8 @@ export default function Home() {
         <Link href="/mood"><BookOpenText/><h3>Mood & journal tools</h3><p>Notice patterns and make space for thoughts without streaks or rewards.</p><b>Try a check-in <ArrowRight/></b></Link>
         <Link href="/exercises"><Leaf/><h3>Guided wellbeing exercises</h3><p>Breathing, grounding, reframing, rest, and one manageable next step.</p><b>Explore exercises <ArrowRight/></b></Link>
         <Link href="/safety-plan"><ShieldCheck/><h3>Safety & crisis support</h3><p>Prepare a personal safety plan and quickly reach verified resources.</p><b>Open safety tools <ArrowRight/></b></Link>
+        <Link href="/consultancy"><MapPinned/><h3>Find nearby professional care</h3><p>Explore prototype clinic and safety listings, then manage appointment requests.</p><b>Find care nearby <ArrowRight/></b></Link>
+        <Link href="/professional"><BriefcaseMedical/><h3>Professional care portal</h3><p>A dedicated workspace for counsellors, psychologists, and psychiatrists.</p><b>Open professional portal <ArrowRight/></b></Link>
         <Link href="/about"><Languages/><h3>Cultural & language awareness</h3><p>Choose English, Hindi, or Hinglish in this prototype experience.</p><b>Learn about the approach <ArrowRight/></b></Link>
       </div></section>
       <section className="landing-trust"><div className="trust-visual" aria-hidden="true"><span>✦</span><i/><b/></div><div><p className="eyebrow">Clarity builds trust</p><h2>Supportive, not clinical.</h2><p>Wellbeing Support is a frontend prototype. It does not diagnose, prescribe medication, monitor you, contact a counsellor, or dispatch emergency help. Your local choices remain yours.</p><div className="landing-link-row"><Link href="/trust">Read trust & limitations <ArrowRight/></Link><Link href="/privacy">Visit privacy center <ArrowRight/></Link></div></div></section>

@@ -8,6 +8,8 @@ import { PrivacyCenter } from '@/features/privacy/privacy-center';
 import { SafetyPlan } from '@/features/safety/safety-plan';
 import { AboutPage, CrisisPage, FaqPage, NotFound, OfflinePage, SettingsPage, SupportHome, TrustPage } from '@/features/static/pages';
 import { WellbeingAnalysis } from '@/features/wellbeing/wellbeing-analysis';
+import { ConsultancyHub } from '@/features/consultancy/consultancy-hub';
+import { ProfessionalPortal } from '@/features/professional/professional-portal';
 
 const pageMap:Record<string,{title:string;description?:string;content:React.ReactNode}> = {
   support:{title:'What would help right now?',description:'Choose one small place to begin. You can change direction at any time.',content:<SupportHome/>},
@@ -16,6 +18,8 @@ const pageMap:Record<string,{title:string;description?:string;content:React.Reac
   journal:{title:'A private place for your thoughts',description:'Your entries stay in this browser and are not sent anywhere.',content:<Journal/>},
   exercises:{title:'Make a little room to breathe',description:'Short, guided practices for grounding, rest, and manageable next steps.',content:<ExerciseLibrary/>},
   wellbeing:{title:'Understand what may be weighing on you',description:'Choose what to share and receive a non-diagnostic prototype snapshot.',content:<WellbeingAnalysis/>},
+  consultancy:{title:'Find care near you',description:'Explore nearby professional support and manage appointment requests in one place.',content:<ConsultancyHub/>},
+  professional:{title:'Professional care workspace',description:'A prototype portal for counsellors, psychologists, and psychiatrists.',content:<ProfessionalPortal/>},
   'safety-plan':{title:'Your personal safety plan',description:'Prepare supportive steps before a difficult moment becomes overwhelming.',content:<SafetyPlan/>},
   crisis:{title:'Urgent help is available',description:'You choose if and when to contact a verified support service.',content:<CrisisPage/>},
   privacy:{title:'Privacy center',description:'See and control what this prototype stores in your browser.',content:<PrivacyCenter/>},

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Lora } from 'next/font/google';
 import './globals.css';
+import './features.css';
 import { brand } from '@/config/brand';
 
 const sans = Geist({ variable: '--font-sans', subsets: ['latin'] });
