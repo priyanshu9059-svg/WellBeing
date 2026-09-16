@@ -103,6 +103,16 @@ Node version: 22.13 or newer
 
 This project uses Vinext and the current hosting output is designed for the connected Sites deployment. A separate Vercel or Netlify deployment may require provider-specific configuration if their default framework detection does not recognize the Vinext output.
 
+## Vercel public link recovery
+
+`vercel.json` is configured as a public redirect deployment. If the Vercel project `ai-support-counsellor.vercel.app` is connected to this GitHub repository, its next deployment will skip the incompatible Vinext server build and redirect all paths to the working public Sites deployment:
+
+```text
+https://wellbeing-support-priyanshu.priyanshu9059.chatgpt.site
+```
+
+If the Vercel dashboard says the project or domain does not exist, reconnect this repository to a Vercel project first. The source configuration is ready once the Vercel project is connected.
+
 ## Prototype limitations
 
 - No real AI backend is connected.

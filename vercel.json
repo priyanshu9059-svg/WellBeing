@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "destination": "https://wellbeing-support-priyanshu.priyanshu9059.chatgpt.site/:path*",
+      "permanent": false
+    }
+  ]
+}
