@@ -5,8 +5,8 @@ export const features = {
   moodTracking: true,
   journal: true,
   clinicalScreeners: false,
-  counsellorHandoff: false,
+  counsellorHandoff: true,
   anonymousCall: false,
-  sms: false,
-  emergencyIntegration: false,
+  sms: true,
+  emergencyIntegration: true,
 } as const;

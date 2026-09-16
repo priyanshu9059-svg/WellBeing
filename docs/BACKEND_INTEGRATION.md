@@ -1,30 +1,31 @@
 # Backend integration map
 
-All external boundaries live in `services/index.ts`. Components currently use local mock implementations. `FutureApiServices` fails closed until an authenticated backend is configured.
+The Express API in `backend/` implements the contracts in `services/index.ts`. The frontend uses `getServices()` which selects `apiServices` when `NEXT_PUBLIC_API_BASE_URL` is set, otherwise local mocks.
 
-| Interface | Current prototype | Future responsibility |
-|---|---|---|
-| `ChatService` | Short mocked supportive responses | Approved AI orchestration, moderation, audit controls |
-| `VoiceTranscriptionService` | Prototype transcript | Secure audio upload and speech-to-text |
-| `VoiceAnalysisService` | Non-clinical presentation card | Clinically reviewed signal processing, if approved |
-| `RiskScreeningService` | Local phrase demonstration | Validated screening and reviewed escalation policy |
-| `WellbeingAnalysisService` | Timed mock snapshot | Approved analysis pipeline and explainability |
-| `AuthenticationService` | Disabled | Anonymous/account auth and session security |
-| `UserProfileService` | Local consent state | Profile/consent versioning and revocation |
-| `JournalService` / `MoodService` | `localStorage` | Encrypted transport, access controls, retention/deletion |
-| `SafetyPlanService` | `localStorage`, print, JSON | Secure sync and explicit sharing controls |
-| `NotificationService` | Disabled | Opt-in SMS/email provider integration |
-| `CounsellorService` | Disabled | Staff availability, routing, consent, and audit trail |
-| `EmergencyService` | Deliberate `tel:` links only | Regionally governed integration, if ever approved |
-| `OrganizationService` | Demo codes and aggregates | Tenant boundaries, privacy thresholds, administration |
-| `AnalyticsService` | No external tracking | Privacy-preserving, consent-aware aggregate analytics |
+| Interface | Implementation |
+|---|---|
+| `ChatService` | `POST /api/chat/send` — heuristic or OpenAI |
+| `VoiceTranscriptionService` | `POST /api/wellbeing/voice/transcribe` |
+| `VoiceAnalysisService` | `POST /api/wellbeing/voice/analyze` |
+| `RiskScreeningService` | `POST /api/wellbeing/risk-screen` |
+| `WellbeingAnalysisService` | `POST /api/wellbeing/analyze` |
+| `AuthenticationService` | `/api/auth/*` JWT sessions |
+| `UserProfileService` | `/api/profile/consent` |
+| `JournalService` / `MoodService` | `/api/journal`, `/api/mood` |
+| `SafetyPlanService` | `/api/safety-plan` |
+| `NotificationService` | `/api/notifications/send` (log mode by default) |
+| `CounsellorService` | `/api/counsellor/request` |
+| `EmergencyService` | `/api/emergency/connect` + resource links |
+| `OrganizationService` | `/api/organizations/*` |
+| `AnalyticsService` | `/api/analytics/track` |
+| Care / Professional | `/api/care/*`, `/api/professional/*` |
 
 ## Integration rules
 
-1. Keep API keys and provider credentials server-side.
+1. Keep API keys server-side (`backend/.env`).
 2. Preserve independent contact and wellbeing-summary consent.
-3. Version privacy policy, consent language, and retention rules.
-4. Officially verify every regional crisis resource before release.
-5. Add authentication and authorization before any identifiable persistence.
-6. Add request cancellation, loading states, retry policy, and user-safe errors at every boundary.
-7. Complete clinical, safety, privacy, accessibility, and security review before enabling high-risk features.
+3. Version privacy policy, consent language, and retention rules for production.
+4. Re-verify regional crisis resources before release.
+5. JWT auth is required for identifiable persistence.
+6. Abort signals are supported on client fetches.
+7. Complete clinical/safety/privacy review before enabling high-risk flags.

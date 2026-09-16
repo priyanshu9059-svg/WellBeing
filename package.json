@@ -1,15 +1,21 @@
 {
-  "name": "sites-project",
-  "version": "0.1.0",
+  "name": "wellbeing-support",
+  "version": "1.0.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "vinext dev",
+    "dev:web": "vinext dev",
+    "dev:api": "npm run dev --prefix backend",
+    "dev:all": "npm run dev:api & npm run dev:web",
     "build": "vinext build",
+    "build:api": "npm run build --prefix backend",
     "start": "vinext start",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "start:api": "npm run start --prefix backend",
+    "db:setup": "npm run db:setup --prefix backend",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern backend"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

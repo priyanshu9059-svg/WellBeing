@@ -1,0 +1,16 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: file:./data/dev.db
+      JWT_SECRET: wellbeing-docker-secret
+      PORT: 4000
+      CORS_ORIGIN: http://localhost:3000
+      NOTIFICATION_MODE: log
+    volumes:
+      - api-data:/app/data
+
+volumes:
+  api-data:
