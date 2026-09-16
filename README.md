@@ -48,6 +48,7 @@ Local browser storage is not claimed to be encrypted. Do not use this prototype 
 
 - [Feature status](docs/FEATURE_STATUS.md)
 - [Backend integration map](docs/BACKEND_INTEGRATION.md)
+- [Project logs and deployment notes](docs/PROJECT_LOGS.md)
 
 ## Safety and scope
 
