@@ -6,5 +6,11 @@ export const crisisResources = {
 } as const;
 
 export const HIGH_RISK_PHRASES = [
-  'kill myself', 'end my life', 'suicide', 'want to die', 'hurt myself', 'not safe',
+  'kill myself', 'end my life', 'suicide', 'want to die', 'hurt myself',
+];
+
+export const PHYSICAL_URGENT_PHRASES = [
+  'call the police', 'call police', 'police', 'emergency', 'being attacked', 'assault',
+  'domestic violence', 'in danger', 'not safe', "can't breathe", 'cannot breathe',
+  'severe bleeding', 'bleeding badly', 'overdose', 'fire',
 ];

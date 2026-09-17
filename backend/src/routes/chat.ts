@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import express from 'express';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../lib/auth.js';
@@ -7,6 +10,24 @@ import { generateChatReply, screenRisk } from '../services/wellbeing.js';
 export const chatRouter = Router();
 
 chatRouter.use(requireAuth);
+
+const uploadDir = path.resolve(process.cwd(), 'uploads', 'conversations');
+
+function messageMetadata(value: string) {
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function extensionFromMime(mime: string) {
+  if (mime.includes('mp4')) return 'mp4';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('wav')) return 'wav';
+  if (mime.includes('audio')) return 'webm';
+  return 'webm';
+}
 
 chatRouter.get('/conversation', async (req: AuthedRequest, res, next) => {
   try {
@@ -39,6 +60,7 @@ chatRouter.get('/conversation', async (req: AuthedRequest, res, next) => {
         text: m.text,
         createdAt: m.createdAt.toISOString(),
         feedback: m.feedback ?? undefined,
+        ...messageMetadata(m.metadataJson),
       })),
     });
   } catch (e) {
@@ -48,7 +70,11 @@ chatRouter.get('/conversation', async (req: AuthedRequest, res, next) => {
 
 chatRouter.post('/send', async (req: AuthedRequest, res, next) => {
   try {
-    const body = z.object({ message: z.string().min(1).max(4000), conversationId: z.string().optional() }).parse(req.body);
+    const body = z.object({
+      message: z.string().min(1).max(4000),
+      conversationId: z.string().optional(),
+      language: z.enum(['English', 'Hindi', 'Hinglish']).optional(),
+    }).parse(req.body);
     const risk = screenRisk(body.message);
 
     let conversation = body.conversationId
@@ -82,12 +108,22 @@ chatRouter.post('/send', async (req: AuthedRequest, res, next) => {
       });
     }
 
-    const replyText = await generateChatReply(body.message);
+    const history = await prisma.chatMessage.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+    });
+    const reply = await generateChatReply(
+      body.message,
+      history.reverse().map((item) => ({ role: item.role === 'assistant' ? 'assistant' as const : 'user' as const, text: item.text })),
+      body.language ?? 'English',
+    );
     const assistant = await prisma.chatMessage.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
-        text: replyText,
+        text: reply.text,
+        metadataJson: JSON.stringify({ choices: reply.choices, actions: reply.actions, urgency: reply.urgency }),
       },
     });
     await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
@@ -106,6 +142,7 @@ chatRouter.post('/send', async (req: AuthedRequest, res, next) => {
         role: 'assistant',
         text: assistant.text,
         createdAt: assistant.createdAt.toISOString(),
+        ...messageMetadata(assistant.metadataJson),
       },
     });
   } catch (e) {
@@ -127,6 +164,88 @@ chatRouter.post('/feedback', async (req: AuthedRequest, res, next) => {
       data: { feedback: body.feedback },
     });
     res.json({ id: updated.id, feedback: updated.feedback });
+  } catch (e) {
+    next(e);
+  }
+});
+
+chatRouter.post('/recordings', express.raw({ type: ['video/*', 'audio/*', 'application/octet-stream'], limit: '80mb' }), async (req: AuthedRequest, res, next) => {
+  try {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ error: 'Recording file is required.' });
+    const mimeType = req.headers['content-type'] || 'application/octet-stream';
+    await mkdir(uploadDir, { recursive: true });
+    const id = crypto.randomUUID();
+    const filename = `${req.user!.id}-${id}.${extensionFromMime(mimeType)}`;
+    const filePath = path.join(uploadDir, filename);
+    await writeFile(filePath, req.body);
+    const audit = await prisma.auditLog.create({
+      data: {
+        userId: req.user!.id,
+        action: 'conversation.recording.created',
+        detailJson: JSON.stringify({
+          filename,
+          path: filePath,
+          mimeType,
+          sizeBytes: req.body.length,
+          placeholder: 'Conversation recording archive. No facial, age, recognition, or emotion diagnosis performed.',
+        }),
+      },
+    });
+    res.status(201).json({ id: audit.id, filename, sizeBytes: req.body.length, createdAt: audit.createdAt.toISOString() });
+  } catch (e) {
+    next(e);
+  }
+});
+
+chatRouter.get('/recordings', async (req: AuthedRequest, res, next) => {
+  try {
+    const recordings = await prisma.auditLog.findMany({
+      where: { userId: req.user!.id, action: 'conversation.recording.created' },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(recordings.map((recording) => {
+      const detail = JSON.parse(recording.detailJson || '{}') as { filename?: string; sizeBytes?: number; mimeType?: string };
+      return {
+        id: recording.id,
+        filename: detail.filename ?? 'conversation-recording.webm',
+        sizeBytes: detail.sizeBytes ?? 0,
+        mimeType: detail.mimeType ?? 'video/webm',
+        createdAt: recording.createdAt.toISOString(),
+      };
+    }));
+  } catch (e) {
+    next(e);
+  }
+});
+
+chatRouter.get('/recordings/:id/file', async (req: AuthedRequest, res, next) => {
+  try {
+    const recording = await prisma.auditLog.findFirst({
+      where: { id: String(req.params.id), userId: req.user!.id, action: 'conversation.recording.created' },
+    });
+    if (!recording) return res.status(404).json({ error: 'Recording not found.' });
+    const detail = JSON.parse(recording.detailJson || '{}') as { path?: string; mimeType?: string };
+    if (!detail.path || !path.resolve(detail.path).startsWith(uploadDir)) return res.status(404).json({ error: 'Recording not found.' });
+    res.type(detail.mimeType || 'video/webm').sendFile(path.resolve(detail.path), (error) => {
+      if (error && !res.headersSent) next(error);
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+chatRouter.delete('/recordings/:id', async (req: AuthedRequest, res, next) => {
+  try {
+    const recording = await prisma.auditLog.findFirst({
+      where: { id: String(req.params.id), userId: req.user!.id, action: 'conversation.recording.created' },
+    });
+    if (!recording) return res.status(404).json({ error: 'Recording not found.' });
+    const detail = JSON.parse(recording.detailJson || '{}') as { path?: string };
+    if (detail.path && path.resolve(detail.path).startsWith(uploadDir)) {
+      await rm(detail.path, { force: true });
+    }
+    await prisma.auditLog.delete({ where: { id: recording.id } });
+    res.status(204).send();
   } catch (e) {
     next(e);
   }

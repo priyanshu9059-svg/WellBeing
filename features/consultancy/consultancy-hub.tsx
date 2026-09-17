@@ -38,13 +38,6 @@ const categoryQueries: Record<ServiceType, string> = {
   'Police station': 'police station',
 };
 
-const demoPlaces: Place[] = [
-  { id:'demo-1', name:'Serenity Mind Clinic', type:'Psychiatrist/Psychological clinics', area:'Indiranagar, Bengaluru', distance:'1.2 km', distanceKm:1.2, rating:'4.8', reviews:126, phone:'+91 80 4567 2100', hours:'Open today', next:'Today, 5:30 PM', specialties:['Psychology','Trauma','Young adults'], mapsUrl:'https://www.google.com/maps/search/?api=1&query=Serenity%20Mind%20Clinic%20Indiranagar' },
-  { id:'demo-2', name:'Mindful Psychiatry & Wellness', type:'Psychiatrist/Psychological clinics', area:'HAL 2nd Stage, Bengaluru', distance:'2.8 km', distanceKm:2.8, rating:'4.6', reviews:74, phone:'+91 80 4098 1122', hours:'Open today', next:'Wed, 3:00 PM', specialties:['Psychiatry','Sleep','Mood'], mapsUrl:'https://www.google.com/maps/search/?api=1&query=Mindful%20Psychiatry%20Wellness%20Bengaluru' },
-  { id:'demo-3', name:'City Wellness Hospital', type:'Hospitals', area:'Old Airport Road, Bengaluru', distance:'3.9 km', distanceKm:3.9, rating:'4.3', reviews:214, phone:'+91 80 4111 2200', hours:'Open 24 hours', next:'Emergency desk', specialties:['Emergency','Psychiatry','Trauma'], mapsUrl:'https://www.google.com/maps/search/?api=1&query=City%20Wellness%20Hospital%20Bengaluru' },
-  { id:'demo-4', name:'Indiranagar Police Station', type:'Police station', area:'Indiranagar, Bengaluru', distance:'1.7 km', distanceKm:1.7, rating:'-', reviews:0, phone:'112', hours:'Open 24 hours', next:'Walk-in support', specialties:['Emergency help','Safety support'], mapsUrl:'https://www.google.com/maps/search/?api=1&query=Indiranagar%20Police%20Station' },
-];
-
 const initialAppointments: Appointment[] = [
   { id:'1', place:'Serenity Mind Clinic', clinician:'Rohan Iyer, Counsellor', date:'18 Sep 2026', time:'11:00 AM', mode:'Video consultation', status:'Confirmed' },
   { id:'2', place:'City Wellness Hospital', clinician:'Available care professional', date:'02 Sep 2026', time:'4:30 PM', mode:'In person', status:'Completed' },
@@ -119,7 +112,7 @@ export function ConsultancyHub(){
   const services = getServices();
   const [view,setView]=useState<'discover'|'appointments'>('discover');
   const [filter,setFilter]=useState<Filter>('All');
-  const [selected,setSelected]=useState<Place>(demoPlaces[0]);
+  const [selected,setSelected]=useState<Place|null>(null);
   const [query,setQuery]=useState('');
   const [location,setLocation]=useState('Indiranagar, Bengaluru');
   const [coords,setCoords]=useState('');
@@ -127,9 +120,9 @@ export function ConsultancyHub(){
   const [booking,setBooking]=useState<Place|null>(null);
   const [booked,setBooked]=useState(false);
   const [bookingError,setBookingError]=useState<string|null>(null);
-  const [places,setPlaces]=useState<Place[]>(demoPlaces);
+  const [places,setPlaces]=useState<Place[]>([]);
   const [loadingPlaces,setLoadingPlaces]=useState(false);
-  const [placesMessage,setPlacesMessage]=useState(googleMapsKey ? 'Google Places results will appear here.' : 'Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to show live Google results here.');
+  const [placesMessage,setPlacesMessage]=useState(googleMapsKey ? 'Search an area to load Google Places results.' : 'Live suggested places need NEXT_PUBLIC_GOOGLE_MAPS_API_KEY. The map can still open Google results directly.');
   const serviceNodeRef=useRef<HTMLDivElement|null>(null);
   const [appointments,setAppointments]=useState<Appointment[]>(()=>typeof window === 'undefined' ? initialAppointments : loadCachedAppointments());
   const [date,setDate]=useState('2026-09-18');
@@ -143,14 +136,15 @@ export function ConsultancyHub(){
   const mapsLink = `https://www.google.com/maps/search/?api=1&query=${mapSearch}`;
   const visible=useMemo(()=>places.filter(p=>(filter==='All'||p.type===filter)&&`${p.name} ${p.area} ${p.specialties.join(' ')}`.toLowerCase().includes(query.toLowerCase())),[filter,places,query]);
 
-  useEffect(()=>{ if (visible[0]) setSelected(visible[0]); },[visible]);
+  useEffect(()=>{ setSelected(visible[0] ?? null); },[visible]);
   useEffect(()=>{ void refreshGooglePlaces(); },[filter, searchArea]);
   useEffect(()=>{ let cancelled=false; async function load(){ if(!isApiEnabled()) return; try{const remote=await services.care.listAppointments(); if(!cancelled&&remote.length) saveAppointments(remote.map(mapAppointment));}catch{} } void load(); return()=>{cancelled=true}; },[]);
 
   async function refreshGooglePlaces(nextLocation=location) {
     const area = coords || nextLocation;
     if (!googleMapsKey) {
-      setPlaces(demoPlaces.filter(p=>filter==='All'||p.type===filter));
+      setPlaces([]);
+      setPlacesMessage('Live suggested places need NEXT_PUBLIC_GOOGLE_MAPS_API_KEY. Use "Open full map" to view Google results for this search.');
       return;
     }
     setLoadingPlaces(true);
@@ -167,11 +161,11 @@ export function ConsultancyHub(){
         });
       })));
       const next = batches.flat();
-      setPlaces(next.length ? next : demoPlaces.filter(p=>filter==='All'||p.type===filter));
-      setPlacesMessage(next.length ? 'Showing live Google Places results.' : 'No Google Places results found. Showing demo suggestions.');
+      setPlaces(next);
+      setPlacesMessage(next.length ? 'Showing live Google Places results.' : 'No Google Places results found for this area and category.');
     } catch {
-      setPlaces(demoPlaces.filter(p=>filter==='All'||p.type===filter));
-      setPlacesMessage('Could not load Google Places results. Showing demo suggestions.');
+      setPlaces([]);
+      setPlacesMessage('Could not load Google Places results. Use "Open full map" to view this search in Google Maps.');
     } finally {
       setLoadingPlaces(false);
     }
@@ -195,7 +189,7 @@ export function ConsultancyHub(){
       <div className="care-search"><div className="location-field"><MapPin/><label><span>Map search area</span><input value={location} onChange={e=>{setLocation(e.target.value);setCoords('')}} onKeyDown={e=>{if(e.key==='Enter')searchMap()}} placeholder="Try Agra, Delhi, Mumbai..."/></label><Button variant="secondary" onClick={searchMap}><Search/>Search map</Button><Button variant="secondary" onClick={useLocation}><LocateFixed/>Use my location</Button></div>{locationMessage&&<p className="location-message">{locationMessage}</p>}<div className="care-filter-row"><div className="search care-query"><Search/><input placeholder="Search within suggested places" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="service-filters">{(['All','Psychiatrist/Psychological clinics','Hospitals','Police station'] as const).map(item=><button key={item} className={filter===item?'active':''} onClick={()=>setFilter(item)}>{item==='Police station'?<Shield/>:item==='All'?<Building2/>:item==='Hospitals'?<Cross/>:<Stethoscope/>}{item}</button>)}</div></div></div>
       <div className="care-explorer">
         <section className="care-map google-care-map" aria-label="Google map search for nearby services"><iframe title="Google Maps nearby mental health search" src={mapUrl} loading="lazy" referrerPolicy="no-referrer-when-downgrade"/><div className="map-search-overlay"><div className="search"><Search/><input value={location} onChange={e=>{setLocation(e.target.value);setCoords('')}} onKeyDown={e=>{if(e.key==='Enter')searchMap()}} placeholder="Search map area, e.g. Agra"/></div><button onClick={searchMap}>Search</button></div><div className="map-key google-map-key"><span><i className="clinic-dot"/>Google Maps search</span><small><a target="_blank" rel="noreferrer" href={mapsLink}>Open full map <Navigation size={14}/></a></small></div></section>
-        <section className="place-list" aria-label="Nearby services"><div className="list-head"><div><p className="kicker">Near {location}</p><h2>{visible.length} suggested places nearby</h2><p className="fine-print">{loadingPlaces?'Refreshing results...':placesMessage}</p></div><select aria-label="Sort services" defaultValue="distance"><option value="distance">Nearest first</option><option value="rating">Top rated</option></select></div>{visible.length?visible.map(p=><article key={p.id} className={`place-card ${selected.id===p.id?'selected':''}`} onClick={()=>setSelected(p)}><div className={`place-symbol ${p.type==='Police station'?'police':''}`}>{p.type==='Police station'?<Shield/>:p.type==='Hospitals'?<Cross/>:<Stethoscope/>}</div><div className="place-info"><span className="place-type">{p.type} · {p.distance}</span><h3>{p.name}</h3><p><MapPin/> {p.area} · {p.hours}</p>{p.rating!=='-'&&<p className="rating"><Star/> {p.rating} <span>({p.reviews} Google reviews)</span></p>}<div className="specialty-row">{p.specialties.map(s=><span key={s}>{s}</span>)}</div><div className="place-actions">{p.phone?<a className="btn btn-secondary" href={`tel:${p.phone.replace(/\s/g,'')}`} onClick={e=>e.stopPropagation()}><Phone/>Call</a>:null}<a className="btn btn-secondary" target="_blank" rel="noreferrer" href={p.mapsUrl} onClick={e=>e.stopPropagation()}><Navigation/>Google Maps</a>{p.type!=='Police station'&&<Button onClick={e=>{e.stopPropagation();setBooking(p);setBooked(false);setBookingError(null)}}>Book appointment</Button>}</div></div><ChevronRight/></article>):<Card className="empty-care"><Search/><h3>No matching services</h3><p>Try another area, category, or search term.</p></Card>}</section>
+        <section className="place-list" aria-label="Nearby services"><div className="list-head"><div><p className="kicker">Near {location}</p><h2>{visible.length} suggested places nearby</h2><p className="fine-print">{loadingPlaces?'Refreshing results...':placesMessage}</p></div><select aria-label="Sort services" defaultValue="distance"><option value="distance">Nearest first</option><option value="rating">Top rated</option></select></div>{visible.length?visible.map(p=><article key={p.id} className={`place-card ${selected?.id===p.id?'selected':''}`} onClick={()=>setSelected(p)}><div className={`place-symbol ${p.type==='Police station'?'police':''}`}>{p.type==='Police station'?<Shield/>:p.type==='Hospitals'?<Cross/>:<Stethoscope/>}</div><div className="place-info"><span className="place-type">{p.type} · {p.distance}</span><h3>{p.name}</h3><p><MapPin/> {p.area} · {p.hours}</p>{p.rating!=='-'&&<p className="rating"><Star/> {p.rating} <span>({p.reviews} Google reviews)</span></p>}<div className="specialty-row">{p.specialties.map(s=><span key={s}>{s}</span>)}</div><div className="place-actions">{p.phone?<a className="btn btn-secondary" href={`tel:${p.phone.replace(/\s/g,'')}`} onClick={e=>e.stopPropagation()}><Phone/>Call</a>:null}<a className="btn btn-secondary" target="_blank" rel="noreferrer" href={p.mapsUrl} onClick={e=>e.stopPropagation()}><Navigation/>Google Maps</a>{p.type!=='Police station'&&<Button onClick={e=>{e.stopPropagation();setBooking(p);setBooked(false);setBookingError(null)}}>Book appointment</Button>}</div></div><ChevronRight/></article>):<Card className="empty-care"><Search/><h3>No live suggested places</h3><p>{placesMessage}</p><a className="btn btn-secondary" target="_blank" rel="noreferrer" href={mapsLink}><Navigation/>Open Google Maps results</a></Card>}</section>
       </div>
     </>:<AppointmentCenter appointments={appointments} setAppointments={saveAppointments}/>} 
     {booking&&<div className="mini-modal booking-modal"><div>{booked?<div className="booking-success"><span><Check/></span><p className="kicker">Request added</p><h3>Your appointment is scheduled.</h3><p>You can track updates in the Appointments tab. {isApiEnabled()?'The provider may still need to confirm the slot.':'This prototype does not send the request to the provider.'}</p>{bookingError&&<p className="error-text">{bookingError} Saved locally as a fallback.</p>}<Button onClick={()=>{setBooking(null);setBooked(false);setView('appointments')}}>View appointments</Button></div>:<><button className="icon-button booking-close" onClick={()=>setBooking(null)} aria-label="Close"><X/></button><p className="kicker">Schedule consultation</p><h3>{booking.name}</h3><p className="fine-print">Choose a preferred slot. In production, the provider must confirm it.</p><div className="booking-grid"><label className="field"><span>Date</span><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label className="field"><span>Time</span><select value={time} onChange={e=>setTime(e.target.value)}><option>11:00 AM</option><option>3:00 PM</option><option>5:30 PM</option></select></label></div><label className="field"><span>Consultation mode</span><select value={mode} onChange={e=>setMode(e.target.value)}><option>In person</option><option>Video consultation</option><option>Phone call</option></select></label><label className="check"><input type="checkbox" required/><span><b>I understand this is a prototype request</b><small>{isApiEnabled()?'Your request is sent to the support API when connected.':'No provider receives information from this frontend demo.'}</small></span></label>{bookingError&&<p className="error-text">{bookingError}</p>}<Button onClick={confirmBooking}><CalendarClock/>Request appointment</Button></>}</div></div>}

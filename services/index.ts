@@ -24,6 +24,13 @@ export interface VoiceTranscriptionService {
 export interface VoiceAnalysisService {
   analyze(blob: Blob, signal?: AbortSignal): Promise<Record<string, string>>;
 }
+export interface ConversationRecordingService {
+  upload(blob: Blob, signal?: AbortSignal): Promise<{ id: string; filename: string; sizeBytes: number }>;
+  list(signal?: AbortSignal): Promise<ConversationRecording[]>;
+  get(id: string, signal?: AbortSignal): Promise<Blob>;
+  remove(id: string, signal?: AbortSignal): Promise<void>;
+}
+export type ConversationRecording = { id: string; filename: string; sizeBytes: number; mimeType?: string; createdAt?: string };
 export interface RiskScreeningService {
   screen(text: string, signal?: AbortSignal): Promise<{ flagged: boolean }>;
 }
@@ -96,7 +103,7 @@ export type ProfessionalSignup = {
   email: string;
   password: string;
   displayName: string;
-  role: 'COUNSELLOR' | 'PSYCHOLOGIST' | 'PSYCHIATRIST';
+  role: 'USER' | 'COUNSELLOR' | 'PSYCHOLOGIST' | 'PSYCHIATRIST';
   licenceNumber: string;
 };
 
@@ -171,23 +178,57 @@ const delay = (ms: number, signal?: AbortSignal) =>
     });
   });
 
+const inferLanguage = (message: string, selected: Language = 'English'): Language => {
+  if (/[\u0900-\u097F]/.test(message)) return 'Hindi';
+  if (/\b(mai|main|mujhe|mera|meri|kaise|kya|nahi|haan|thoda|bahut|darr|ghabra|tension|madad|samajh|sun|karna|chahiye|hoon|hai)\b/i.test(message)) return 'Hinglish';
+  return selected;
+};
+
 const supportiveReply = (message: string, language: Language = 'English') => {
   const lower = message.toLowerCase();
   const exam = lower.includes('exam') || lower.includes('परीक्षा');
   const sleep = lower.includes('sleep') || lower.includes('सो') || lower.includes('नींद');
   const alone = lower.includes('alone') || lower.includes('lonely') || lower.includes('अकेल');
+  const care = /(nearby|clinic|hospital|psychiatrist|psychologist|therapy|therapist|ngo|centre|center|care)/.test(lower);
+  const general = /(what can you do|who are you|help me|start|begin|hello|hi|hey|namaste)/.test(lower);
+  const plan = /(plan|small plan|10 minute|priority|pressure)/.test(lower);
+  const stuck = /(stuck|cannot figure|where to start|atak|अटक)/.test(lower);
+  const pause = /(break|guilty|pause|rest|आराम|विराम)/.test(lower);
+  const listen = /(listen|just listen|sun|सुन)/.test(lower);
+  const feeling = /(feeling|emotion|understand what i am feeling|name this feeling|triggered)/.test(lower);
   if (language === 'Hindi') {
+    if (general) return 'मैं यहां हूं। आप कोई भी सवाल पूछ सकते हैं, या हम यह चुनकर शुरू कर सकते हैं कि अभी किस तरह की मदद चाहिए।';
+    if (care) return 'पास की सहायता खोजने के लिए Find care खोलें। वहां city या current location से mental health clinics, hospitals और police stations देख सकते हैं।';
+    if (plan) return 'ठीक है, इसे छोटा रखते हैं: पहले 2 मिनट में काम लिखें, फिर 10 मिनट के लिए सबसे आसान काम शुरू करें। अभी सबसे छोटा पहला काम कौन सा है?';
+    if (stuck) return 'जब सब कुछ एक साथ दिखता है तो शुरुआत मुश्किल लगती है। अभी सिर्फ एक काम चुनें जो 5-10 मिनट में शुरू हो सके।';
+    if (pause) return 'Break लेना avoid करना नहीं है, nervous system को reset करना है। 3 मिनट पानी, धीमी सांस, और screen से नजर हटाकर वापस आएं।';
+    if (listen) return 'मैं सुन रहा हूं। अभी सलाह की जल्दी नहीं करते—जो सबसे भारी हिस्सा है, उसे अपने शब्दों में लिख दें।';
+    if (feeling) return 'चलो feeling को थोड़ा साफ करते हैं। क्या यह ज्यादा डर, उदासी, गुस्सा, शर्म, या थकान जैसा लग रहा है?';
     if (exam) return 'लगता है exams का pressure बहुत जगह ले रहा है। अभी इसका सबसे मुश्किल हिस्सा क्या लग रहा है?';
     if (sleep) return 'आराम न मिलना हर चीज को भारी बना सकता है। जब आप सोने की कोशिश करते हैं तो आमतौर पर क्या होता है?';
     if (alone) return 'मुश्किल चीजों के साथ अकेला महसूस करना दर्द दे सकता है। मैं सुनने के लिए यहां हूं—आज का दिन कैसा रहा?';
     return 'मैं समझ रहा हूं कि अभी यह बहुत भारी लग रहा है। किस हिस्से पर पहले बात करना सबसे helpful लगेगा?';
   }
   if (language === 'Hinglish') {
+    if (general) return 'Main yahan hoon. Aap koi bhi question pooch sakte ho, ya hum choose kar sakte hain ki abhi kis type ki help chahiye.';
+    if (care) return 'Nearby support ke liye Find care open karo. Wahan city ya current location se mental health clinics, hospitals aur police stations milenge.';
+    if (plan) return 'Theek hai, chhota plan banate hain: 2 minutes mein tasks likho, phir 10 minutes ke liye sabse easy task start karo. Abhi sabse chhota first step kya ho sakta hai?';
+    if (stuck) return 'Jab sab kuch ek saath dikhta hai, start karna hard lagta hai. Abhi sirf ek 5-10 minute wala step choose karo; complete karna zaroori nahi.';
+    if (pause) return 'Break lena avoid karna nahi hai; body ko reset dena hai. 3 minutes water, slow breathing, aur screen se nazar hatao, phir wapas aao.';
+    if (listen) return 'Main sun raha hoon. Advice ki jaldi nahi karte—jo sabse heavy part hai, apne words mein likho.';
+    if (feeling) return 'Chalo feeling ko name karte hain. Ye zyada fear, sadness, anger, shame, ya tiredness jaisa lag raha hai?';
     if (exam) return 'Lagta hai exams ka pressure kaafi space le raha hai. Abhi iska sabse difficult part kya feel ho raha hai?';
     if (sleep) return 'Rest na milna sab kuch heavier bana sakta hai. Jab sone ki try karte ho, usually kya hota hai?';
     if (alone) return 'Difficult cheez ke saath lonely feel karna hurt kar sakta hai. Main sunne ke liye yahan hoon—aaj ka din kaisa raha?';
     return 'Mujhe sunai de raha hai ki abhi ye kaafi heavy hai. Kis part ko pehle talk through karna helpful lagega?';
   }
+  if (general) return 'I can answer general questions, listen to what you are going through, suggest small coping steps, and point you toward urgent or nearby support when safety or health is involved.';
+  if (care) return 'I can help you look for nearby support. Use Find care to search by city or current location, then filter mental health clinics, hospitals, or police stations.';
+  if (plan) return 'Let’s make this practical. Write every task down for two minutes, pick the easiest useful one, work on it for ten minutes, then pause and choose the next step.';
+  if (stuck) return 'Feeling stuck usually means the problem is too large to hold at once. Let’s shrink it: choose one action that takes 5-10 minutes and does not need to be perfect.';
+  if (pause) return 'A short break is not failure; it is a reset. Try three minutes away from the screen, sip water, relax your jaw and shoulders, then return to one small next step.';
+  if (listen) return 'I’m listening. No advice first: tell me the part that feels heaviest, and I’ll reflect it back clearly.';
+  if (feeling) return 'Let’s name it gently. Does this feel closer to fear, sadness, anger, shame, exhaustion, or a mix of several?';
   return exam
     ? 'It sounds like the pressure around your exams is taking up a lot of space. What feels most difficult about it right now?'
     : sleep
@@ -197,14 +238,54 @@ const supportiveReply = (message: string, language: Language = 'English') => {
         : 'I’m hearing that this is a lot to hold right now. What part would feel most helpful to talk through first?';
 };
 
+const adaptiveChoices = (message: string, language: Language = 'English') => {
+  const lower = message.toLowerCase();
+  if (/(nearby|clinic|hospital|psychiatrist|psychologist|therapy|therapist|ngo|centre|center|care|police|danger|unsafe)/.test(lower)) {
+    return [
+      { label: language === 'Hindi' ? 'Nearby care खोजें' : language === 'Hinglish' ? 'Nearby care find karo' : 'Find nearby care', value: 'Help me find nearby care.' },
+      { label: language === 'Hindi' ? 'Mental support' : 'Mental support', value: 'I need mental health support.' },
+      { label: language === 'Hindi' ? 'Urgent physical help' : 'Urgent physical help', value: 'I need urgent physical safety help.' },
+    ];
+  }
+  if (/(plan|stuck|start|pressure|exam|work|study|break|guilty)/.test(lower)) {
+    return [
+      { label: language === 'Hindi' ? '10 मिनट का plan' : language === 'Hinglish' ? '10 minute plan' : 'Make a 10 minute plan', value: 'Help me make a 10 minute plan.' },
+      { label: language === 'Hindi' ? 'Body calm करें' : language === 'Hinglish' ? 'Body calm karo' : 'Calm my body first', value: 'Help me calm my body first.' },
+      { label: language === 'Hindi' ? 'एक priority चुनें' : language === 'Hinglish' ? 'One priority choose karo' : 'Choose one priority', value: 'Help me choose only one priority.' },
+    ];
+  }
+  return [
+    { label: language === 'Hindi' ? 'Feeling समझने में मदद' : language === 'Hinglish' ? 'Feeling samjho' : 'Help me understand what I’m feeling', value: 'I want help understanding what I am feeling.' },
+    { label: language === 'Hindi' ? 'एक छोटा step' : language === 'Hinglish' ? 'One small step' : 'Give me one small thing to try', value: 'Please give me one small thing I can try right now.' },
+    { label: language === 'Hindi' ? 'बस सुनिए' : language === 'Hinglish' ? 'Bas listen karo' : 'I just need you to listen', value: 'I do not need advice yet; please listen.' },
+  ];
+};
+
 export const mockChatService: ChatService = {
   async send(message, signal, language) {
     await delay(800, signal);
+    const resolvedLanguage = inferLanguage(message, language);
+    const lower = message.toLowerCase();
+    const urgent = ['call the police', 'call police', 'police', 'emergency', 'being attacked', 'assault', 'in danger', 'can’t breathe', "can't breathe", 'severe bleeding', 'overdose', 'fire'].some((phrase) =>
+      lower.includes(phrase),
+    );
+    const care = /(nearby|clinic|hospital|psychiatrist|psychologist|therapy|therapist|ngo|centre|center|care)/.test(lower);
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
-      text: supportiveReply(message, language),
+      text: urgent
+        ? 'Your immediate physical safety matters more than continuing this chat. Move to a safer public place if you can and call emergency services now if there is immediate danger.'
+        : supportiveReply(message, resolvedLanguage),
       createdAt: new Date().toISOString(),
+      choices: urgent ? [] : adaptiveChoices(message, resolvedLanguage),
+      actions: urgent ? [
+        { label: 'Call emergency services (112)', href: 'tel:112', tone: 'danger' },
+        { label: 'Open safety resources', href: '/crisis', tone: 'secondary' },
+      ] : care ? [
+        { label: 'Find nearby care', href: '/consultancy', tone: 'primary' },
+        { label: 'Open crisis resources', href: '/crisis', tone: 'secondary' },
+      ] : [],
+      urgency: urgent ? 'urgent' : 'support',
     };
   },
 };
@@ -215,12 +296,12 @@ export const apiChatService: ChatService = {
     const data = await apiAuthed<{ messages: ChatMessage[] }>('/api/chat/conversation', { signal });
     return data.messages;
   },
-  async send(message, signal) {
+  async send(message, signal, language) {
     await ensureSession(signal);
     const data = await apiAuthed<{
       flagged: boolean;
       assistantMessage: ChatMessage | null;
-    }>('/api/chat/send', { method: 'POST', body: { message }, signal });
+    }>('/api/chat/send', { method: 'POST', body: { message, language }, signal });
     if (data.flagged || !data.assistantMessage) {
       const err = new Error('FLAGGED') as Error & { flagged: boolean };
       err.flagged = true;
@@ -245,6 +326,23 @@ export const apiChatService: ChatService = {
 };
 
 export const mockServices = {
+  recordings: <ConversationRecordingService>{
+    async upload(blob, signal) {
+      await delay(120, signal);
+      return { id: crypto.randomUUID(), filename: 'local-recording.webm', sizeBytes: blob.size };
+    },
+    async list(signal) {
+      await delay(80, signal);
+      return [];
+    },
+    async get(_id, signal) {
+      await delay(80, signal);
+      throw new Error('Recording preview is unavailable in local mode.');
+    },
+    async remove(_id, signal) {
+      await delay(80, signal);
+    },
+  },
   voiceTranscription: <VoiceTranscriptionService>{
     async transcribe(_blob, signal) {
       await delay(250, signal);
@@ -384,7 +482,7 @@ export const apiServices = {
     async transcribe(blob, signal) {
       const data = await apiAuthed<{ transcript: string }>('/api/wellbeing/voice/transcribe', {
         method: 'POST',
-        body: { sizeBytes: blob.size, mimeType: blob.type },
+        body: blob,
         signal,
       });
       return data.transcript;
@@ -397,6 +495,20 @@ export const apiServices = {
         body: { sizeBytes: blob.size },
         signal,
       });
+    },
+  },
+  recordings: <ConversationRecordingService>{
+    async upload(blob, signal) {
+      return apiAuthed('/api/chat/recordings', { method: 'POST', body: blob, signal });
+    },
+    async list(signal) {
+      return apiAuthed<ConversationRecording[]>('/api/chat/recordings', { signal });
+    },
+    async get(id, signal) {
+      return apiAuthed<Blob>(`/api/chat/recordings/${encodeURIComponent(id)}/file`, { signal, responseType: 'blob' });
+    },
+    async remove(id, signal) {
+      await apiAuthed(`/api/chat/recordings/${encodeURIComponent(id)}`, { method: 'DELETE', signal });
     },
   },
   riskScreening: <RiskScreeningService>{
@@ -605,6 +717,7 @@ export class FutureApiServices {
   chat = apiChatService;
   voiceTranscription = apiServices.voiceTranscription;
   voiceAnalysis = apiServices.voiceAnalysis;
+  recordings = apiServices.recordings;
   riskScreening = apiServices.riskScreening;
   wellbeingAnalysis = apiServices.wellbeingAnalysis;
   authentication = apiServices.authentication;

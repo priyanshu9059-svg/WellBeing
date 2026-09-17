@@ -65,8 +65,8 @@ authRouter.post('/signup', async (req, res, next) => {
         email: z.string().email(),
         password: z.string().min(8),
         displayName: z.string().min(2),
-        role: z.enum(['COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST']).default('COUNSELLOR'),
-        licenceNumber: z.string().min(3),
+        role: z.enum(['USER', 'COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST']).default('USER'),
+        licenceNumber: z.string().default(''),
       })
       .parse(req.body);
 

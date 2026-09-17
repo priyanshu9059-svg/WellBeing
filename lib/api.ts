@@ -43,6 +43,7 @@ type RequestOptions = {
   body?: unknown;
   signal?: AbortSignal;
   auth?: boolean;
+  responseType?: 'json' | 'blob';
 };
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -50,7 +51,8 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   if (!base) throw new ApiError(0, 'API base URL is not configured.');
 
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  const rawBody = typeof Blob !== 'undefined' && options.body instanceof Blob;
+  if (options.body !== undefined && !rawBody) headers['Content-Type'] = 'application/json';
   if (options.auth !== false) {
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -59,11 +61,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const res = await fetch(`${base}${path}`, {
     method: options.method || (options.body !== undefined ? 'POST' : 'GET'),
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.body !== undefined ? (rawBody ? options.body as Blob : JSON.stringify(options.body)) : undefined,
     signal: options.signal,
   });
 
   if (res.status === 204) return undefined as T;
+  if (options.responseType === 'blob') return (await res.blob()) as T;
 
   const text = await res.text();
   const data = text ? (JSON.parse(text) as unknown) : null;
