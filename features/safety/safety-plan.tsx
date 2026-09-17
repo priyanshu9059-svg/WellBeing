@@ -1,5 +1,174 @@
 'use client';
-import { useState } from 'react'; import { ChevronDown, ChevronUp, Download, Plus, Printer, Trash2 } from 'lucide-react'; import { Button } from '@/components/ui/button'; import { Card } from '@/components/ui/card'; import { useLocalStorage } from '@/hooks/use-local-storage'; import { downloadJson } from '@/lib/utils'; import type { SafetyPlan as Plan } from '@/types';
-const sections:[keyof Plan,string,string][]=[['warningSigns','Warning signs I notice','Thoughts, feelings, or changes that tell me I may need more support'],['harderSituations','Situations that make things harder','Places, events, or pressures that can increase distress'],['selfActions','Things I can do by myself','Small actions that help me move through a difficult moment'],['saferPlaces','Places that feel safer','Public or private places where I feel more grounded'],['trustedPeople','People I trust','People I can be with or ask to listen'],['professionalContacts','Professional support contacts','Counsellors, doctors, or helplines I choose'],['reasons','Reasons to keep going','People, values, responsibilities, or possibilities that matter'],['reduceDanger','Steps for reducing access to danger','Ways I can create distance from anything I might use to harm myself'],['emergencyResources','Emergency resources','Verified services I can contact during immediate danger']];
-const initial:Plan={warningSigns:[],harderSituations:[],selfActions:[],saferPlaces:[],trustedPeople:[],professionalContacts:[],reasons:[],reduceDanger:[],emergencyResources:['Tele-MANAS: 14416','Emergency services: 112']};
-export function SafetyPlan(){const [plan,setPlan]=useLocalStorage<Plan>('safety-plan',initial);const [inputs,setInputs]=useState<Record<string,string>>({});const [confirm,setConfirm]=useState(false);function add(key:keyof Plan){const v=(inputs[key]||'').trim();if(!v)return;setPlan(p=>({...p,[key]:[...p[key],v]}));setInputs(i=>({...i,[key]:''}))}function move(key:keyof Plan,index:number,dir:-1|1){setPlan(p=>{const arr=[...p[key]];const target=index+dir;if(target<0||target>=arr.length)return p;[arr[index],arr[target]]=[arr[target],arr[index]];return{...p,[key]:arr}})}return <div className="safety-wrap"><Card className="safety-note"><b>A safety plan supports preparation, but it does not replace emergency or professional care.</b><p>Build it when you have enough space. You can print it or keep it only on this device.</p><div className="row"><Button variant="secondary" onClick={()=>window.print()}><Printer size={17}/>Print</Button><Button variant="secondary" onClick={()=>downloadJson('my-safety-plan.json',plan)}><Download size={17}/>Export JSON</Button><Button variant="ghost" onClick={()=>setConfirm(true)}>Clear plan</Button></div></Card><div className="plan-sections">{sections.map(([key,title,help],sectionIndex)=><Card key={key} className="plan-section"><div className="section-number">{String(sectionIndex+1).padStart(2,'0')}</div><h2>{title}</h2><p>{help}</p><div className="plan-items">{plan[key].map((item,i)=><div key={`${item}-${i}`}><input value={item} onChange={e=>setPlan(p=>({...p,[key]:p[key].map((x,n)=>n===i?e.target.value:x)}))} aria-label={`Edit ${title}`}/><button onClick={()=>move(key,i,-1)} aria-label="Move up"><ChevronUp/></button><button onClick={()=>move(key,i,1)} aria-label="Move down"><ChevronDown/></button><button onClick={()=>setPlan(p=>({...p,[key]:p[key].filter((_,n)=>n!==i)}))} aria-label="Remove"><Trash2/></button></div>)}</div><div className="add-plan"><input value={inputs[key]||''} onChange={e=>setInputs(i=>({...i,[key]:e.target.value}))} onKeyDown={e=>{if(e.key==='Enter')add(key)}} placeholder="Add something that feels true for you"/><Button variant="secondary" onClick={()=>add(key)}><Plus/>Add</Button></div></Card>)}</div>{confirm&&<div className="mini-modal"><div><h3>Clear your safety plan?</h3><p>This removes everything saved locally in the plan.</p><div className="row"><Button variant="danger" onClick={()=>{setPlan(initial);setConfirm(false)}}>Clear plan</Button><Button variant="secondary" onClick={()=>setConfirm(false)}>Cancel</Button></div></div></div>}</div>}
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Download, Plus, Printer, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { downloadJson } from '@/lib/utils';
+import { isApiEnabled } from '@/lib/api';
+import { getServices } from '@/services';
+import type { SafetyPlan as Plan } from '@/types';
+
+const sections: [keyof Plan, string, string][] = [
+  ['warningSigns', 'Warning signs I notice', 'Thoughts, feelings, or changes that tell me I may need more support'],
+  ['harderSituations', 'Situations that make things harder', 'Places, events, or pressures that can increase distress'],
+  ['selfActions', 'Things I can do by myself', 'Small actions that help me move through a difficult moment'],
+  ['saferPlaces', 'Places that feel safer', 'Public or private places where I feel more grounded'],
+  ['trustedPeople', 'People I trust', 'People I can be with or ask to listen'],
+  ['professionalContacts', 'Professional support contacts', 'Counsellors, doctors, or helplines I choose'],
+  ['reasons', 'Reasons to keep going', 'People, values, responsibilities, or possibilities that matter'],
+  ['reduceDanger', 'Steps for reducing access to danger', 'Ways I can create distance from anything I might use to harm myself'],
+  ['emergencyResources', 'Emergency resources', 'Verified services I can contact during immediate danger'],
+];
+
+const initial: Plan = {
+  warningSigns: [],
+  harderSituations: [],
+  selfActions: [],
+  saferPlaces: [],
+  trustedPeople: [],
+  professionalContacts: [],
+  reasons: [],
+  reduceDanger: [],
+  emergencyResources: ['Tele-MANAS: 14416', 'Emergency services: 112'],
+};
+
+export function SafetyPlan() {
+  const services = getServices();
+  const [plan, setPlan] = useLocalStorage<Plan>('safety-plan', initial);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [confirm, setConfirm] = useState(false);
+  const [syncNote, setSyncNote] = useState('');
+
+  useEffect(() => {
+    if (!isApiEnabled() || !services.safetyPlan.get) return;
+    services.safetyPlan
+      .get()
+      .then((remote) => setPlan(remote))
+      .catch(() => {});
+  }, []);
+
+  async function persist(next: Plan) {
+    setPlan(next);
+    if (isApiEnabled()) {
+      try {
+        await services.safetyPlan.save(next);
+        setSyncNote('Synced');
+        setTimeout(() => setSyncNote(''), 1500);
+      } catch {
+        setSyncNote('Saved locally only');
+      }
+    }
+  }
+
+  function add(key: keyof Plan) {
+    const v = (inputs[key] || '').trim();
+    if (!v) return;
+    void persist({ ...plan, [key]: [...plan[key], v] });
+    setInputs((i) => ({ ...i, [key]: '' }));
+  }
+
+  function move(key: keyof Plan, index: number, dir: -1 | 1) {
+    const arr = [...plan[key]];
+    const target = index + dir;
+    if (target < 0 || target >= arr.length) return;
+    [arr[index], arr[target]] = [arr[target], arr[index]];
+    void persist({ ...plan, [key]: arr });
+  }
+
+  return (
+    <div className="safety-wrap">
+      <Card className="safety-note">
+        <b>A safety plan supports preparation, but it does not replace emergency or professional care.</b>
+        <p>Build it when you have enough space. You can print it or keep it on this device{isApiEnabled() ? ' and sync it to your account' : ''}.</p>
+        <div className="row">
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Printer size={17} />
+            Print
+          </Button>
+          <Button variant="secondary" onClick={() => downloadJson('my-safety-plan.json', plan)}>
+            <Download size={17} />
+            Export JSON
+          </Button>
+          <Button variant="ghost" onClick={() => setConfirm(true)}>
+            Clear plan
+          </Button>
+          {syncNote && <small>{syncNote}</small>}
+        </div>
+      </Card>
+      <div className="plan-sections">
+        {sections.map(([key, title, help], sectionIndex) => (
+          <Card key={key} className="plan-section">
+            <div className="section-number">{String(sectionIndex + 1).padStart(2, '0')}</div>
+            <h2>{title}</h2>
+            <p>{help}</p>
+            <div className="plan-items">
+              {plan[key].map((item, i) => (
+                <div key={`${item}-${i}`}>
+                  <input
+                    value={item}
+                    onChange={(e) => {
+                      const next = { ...plan, [key]: plan[key].map((x, n) => (n === i ? e.target.value : x)) };
+                      setPlan(next);
+                    }}
+                    onBlur={() => void persist(plan)}
+                    aria-label={`Edit ${title}`}
+                  />
+                  <button onClick={() => move(key, i, -1)} aria-label="Move up">
+                    <ChevronUp />
+                  </button>
+                  <button onClick={() => move(key, i, 1)} aria-label="Move down">
+                    <ChevronDown />
+                  </button>
+                  <button
+                    onClick={() => void persist({ ...plan, [key]: plan[key].filter((_, n) => n !== i) })}
+                    aria-label="Remove"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="add-plan">
+              <input
+                value={inputs[key] || ''}
+                onChange={(e) => setInputs((i) => ({ ...i, [key]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') add(key);
+                }}
+                placeholder="Add something that feels true for you"
+              />
+              <Button variant="secondary" onClick={() => add(key)}>
+                <Plus />
+                Add
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
+      {confirm && (
+        <div className="mini-modal">
+          <div>
+            <h3>Clear your safety plan?</h3>
+            <p>This removes everything saved in the plan.</p>
+            <div className="row">
+              <Button
+                variant="danger"
+                onClick={() => {
+                  void persist(initial);
+                  setConfirm(false);
+                }}
+              >
+                Clear plan
+              </Button>
+              <Button variant="secondary" onClick={() => setConfirm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,34 +1,32 @@
 # Feature status
 
-## Available in this frontend prototype
+## Available (frontend + backend when API is configured)
 
-- Original responsive landing and optional three-step onboarding
-- Anonymous mocked support chat, suggested prompts, feedback, stop response, history/resource drawers, and local persistence
-- Browser `MediaRecorder` flow with start, pause, resume, stop, playback, retry, deletion, timer, waveform, and graceful fallback
-- Non-diagnostic prototype voice presentation signals
-- Optional camera consent, preview, activity visual, skip, explicit stop, and cleanup on exit
-- Simulated wellbeing analysis and non-diagnostic snapshot
-- Mood check-in, weekly/monthly Recharts, calendar, summaries, JSON export, and local persistence
-- Private journal create, search, filter, edit, pin, delete, prompts, local autosave, and persistence
-- Nine guided exercise players with pause, restart, exit, timer, completion, and reflection
-- Editable, reorderable, printable, exportable local safety plan
-- Persistent urgent-help access and centralized India prototype resources
-- Local keyword safeguard with transparent validation warning
-- Anonymous/contact choice with independent contact and summary consents
-- Anonymous organization-code flow and minimum-group aggregate privacy state
-- Privacy Center, selective clearing, full-session clearing, permission status, and JSON export
-- English, Hindi, and Hinglish selector UI
-- PWA manifest, icon placeholder, registration, install instructions, and offline fallback
-- Keyboard focus states, semantic controls, reduced-motion support, and mobile-safe navigation
+- Responsive landing and optional onboarding
+- Support chat with persistence (API or local fallback), prompts, feedback, voice panel
+- Mood check-in with charts driven by user entries, export, sync
+- Private journal CRUD with search/filter/pin and sync
+- Nine guided exercise players
+- Wellbeing snapshot from answers (server heuristic / optional AI chat)
+- Safety plan editor with sync, print, export
+- Consultancy directory + appointment booking against DB places
+- Professional portal with real auth, dashboard, queries, availability
+- Organization codes and aggregate privacy threshold
+- Privacy Center reflecting live consent
+- Settings prefs (anonymous / reduced sensory) persisted locally
+- PWA manifest and offline fallback
+- Notifications logged server-side; counsellor handoff requests stored
+- Analytics events and emergency connect intent (no auto-dispatch)
 
-## Requires backend integration
+## Optional / environment-dependent
 
-Real AI, real speech-to-text, accounts, cross-device persistence, database storage, SMS, email, counsellor handoff, anonymous telephony, organization administration, and real analytics.
+- OpenAI chat replies when `OPENAI_API_KEY` is set
+- Production SMS/email when `NOTIFICATION_MODE` is wired to a provider
 
-## Requires clinical validation or approval
+## Requires clinical validation before enabling
 
-Diagnostic assessments, automatic risk scores, clinical questionnaires/scoring, treatment advice, emotion interpretation, and escalation thresholds.
+Diagnostic assessments, automatic clinical risk scores, PHQ-9/GAD-7, treatment advice, emotion diagnosis, escalation thresholds (`clinicalScreeners` remains false).
 
-## Deliberately disabled by default
+## Still future
 
-Clinical screeners, counsellor handoff, anonymous calls, SMS, and emergency integration. See `config/features.ts`.
+Live anonymous telephony, verified third-party clinic APIs, full translated content, production emergency system integration beyond `tel:` links.

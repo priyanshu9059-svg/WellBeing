@@ -1,0 +1,282 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  COUNSELLOR
+  PSYCHOLOGIST
+  PSYCHIATRIST
+  ORG_ADMIN
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REQUESTED
+}
+
+enum QueryPriority {
+  NORMAL
+  URGENT
+}
+
+enum QueryStatus {
+  OPEN
+  RESOLVED
+}
+
+model User {
+  id                   String   @id @default(cuid())
+  email                String?  @unique
+  passwordHash         String?
+  displayName          String?
+  role                 Role     @default(USER)
+  anonymous            Boolean  @default(true)
+  anonymousKey         String?  @unique
+  language             String   @default("English")
+  licenceNumber        String?
+  available            Boolean  @default(true)
+  acceptPriority       Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  conversations        Conversation[]
+  moodEntries          MoodEntry[]
+  journalEntries       JournalEntry[]
+  safetyPlan           SafetyPlan?
+  contactConsent       ContactConsent?
+  wellbeingSnapshots   WellbeingSnapshot[]
+  appointments         Appointment[]       @relation("UserAppointments")
+  clinicianAppointments Appointment[]      @relation("ClinicianAppointments")
+  counsellorRequests   CounsellorRequest[] @relation("PatientRequests")
+  assignedRequests     CounsellorRequest[] @relation("AssignedCounsellor")
+  patientQueries       PatientQuery[]      @relation("PatientQueries")
+  answeredQueries      PatientQuery[]      @relation("AnsweredQueries")
+  notifications        Notification[]
+  organizationMembers  OrganizationMember[]
+  analyticsEvents      AnalyticsEvent[]
+  auditLogs            AuditLog[]
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  minGroupSize Int     @default(5)
+  createdAt   DateTime @default(now())
+  members     OrganizationMember[]
+  aggregates  OrgAggregate[]
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  ageBand        String
+  joinedAt       DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model OrgAggregate {
+  id             String @id @default(cuid())
+  organizationId String
+  label          String
+  value          Float
+  groupSize      Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id        String        @id @default(cuid())
+  userId    String
+  title     String        @default("A quiet conversation")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String
+  text           String
+  feedback       String?
+  flagged        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  mood      Int
+  intensity Int
+  note      String   @default("")
+  tagsJson  String   @default("[]")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  mood      String
+  tagsJson  String   @default("[]")
+  date      DateTime @default(now())
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SafetyPlan {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  warningSignsJson     String   @default("[]")
+  harderSituationsJson String   @default("[]")
+  selfActionsJson      String   @default("[]")
+  saferPlacesJson      String   @default("[]")
+  trustedPeopleJson    String   @default("[]")
+  professionalContactsJson String @default("[]")
+  reasonsJson          String   @default("[]")
+  reduceDangerJson     String   @default("[]")
+  emergencyResourcesJson String @default("[\"Tele-MANAS: 14416\",\"Emergency services: 112\"]")
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ContactConsent {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  anonymous              Boolean  @default(true)
+  allowContact           Boolean  @default(false)
+  allowWellbeingSummary  Boolean  @default(false)
+  mobile                 String   @default("")
+  email                  String   @default("")
+  preferredMethod        String   @default("Mobile")
+  preferredTime          String   @default("Morning")
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WellbeingSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  distress         String
+  safetyConcern    String
+  stress           String
+  socialIsolation  String
+  sleepDisruption  String
+  escalation       String
+  confidence       Int
+  factorsJson      String   @default("[]")
+  answersJson      String   @default("[]")
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CarePlace {
+  id              String  @id @default(cuid())
+  name            String
+  type            String
+  area            String
+  distanceKm      Float
+  rating          String
+  reviews         Int     @default(0)
+  phone           String
+  hours           String
+  nextAvailable   String
+  mapX            Float
+  mapY            Float
+  specialtiesJson String  @default("[]")
+  appointments    Appointment[]
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  userId      String
+  clinicianId String?
+  placeId     String?
+  placeName   String
+  clinician   String
+  date        String
+  time        String
+  mode        String
+  status      AppointmentStatus @default(REQUESTED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation("UserAppointments", fields: [userId], references: [id], onDelete: Cascade)
+  clinicianUser User?           @relation("ClinicianAppointments", fields: [clinicianId], references: [id])
+  place       CarePlace?        @relation(fields: [placeId], references: [id])
+}
+
+model CounsellorRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  counsellorId    String?
+  status          String   @default("pending")
+  note            String   @default("")
+  allowSummary    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation("PatientRequests", fields: [userId], references: [id], onDelete: Cascade)
+  counsellor      User?    @relation("AssignedCounsellor", fields: [counsellorId], references: [id])
+}
+
+model PatientQuery {
+  id         String        @id @default(cuid())
+  patientId  String
+  responderId String?
+  text       String
+  priority   QueryPriority @default(NORMAL)
+  status     QueryStatus   @default(OPEN)
+  reply      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  patient    User          @relation("PatientQueries", fields: [patientId], references: [id], onDelete: Cascade)
+  responder  User?         @relation("AnsweredQueries", fields: [responderId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  channel   String
+  to        String
+  subject   String
+  body      String
+  status    String   @default("queued")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  event     String
+  metaJson  String   @default("{}")
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  detailJson String  @default("{}")
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
