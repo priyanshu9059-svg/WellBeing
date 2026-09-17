@@ -1,7 +1,13 @@
 import type { WellbeingSnapshot } from '@/types';
+import type { Language } from '@/types';
 
 export const sampleCodes:Record<string,string> = { 'CAMPUS-DEMO':'Campus wellbeing demo', 'TEAM-CARE':'Workplace wellbeing demo' };
 export const suggestedPrompts = ['Exam pressure is getting to me', 'I feel alone today', 'I can’t switch off from work', 'I just need someone to listen'];
+export const suggestedPromptsByLanguage:Record<Language,string[]> = {
+  English: suggestedPrompts,
+  Hindi: ['Exam pressure बहुत ज्यादा लग रहा है', 'आज मैं अकेला/अकेली महसूस कर रहा/रही हूं', 'काम से mind switch off नहीं हो रहा', 'मुझे बस कोई सुनने वाला चाहिए'],
+  Hinglish: ['Exam pressure bahut zyada lag raha hai', 'Aaj main lonely feel kar raha/rahi hoon', 'Work se mind switch off nahi ho raha', 'Mujhe bas koi sunne wala chahiye'],
+};
 export const mockSnapshot:WellbeingSnapshot = { distress:'Elevated', safetyConcern:'Low', stress:'Elevated', socialIsolation:'Moderate', sleepDisruption:'Moderate', escalation:'Moderate', confidence:72, factors:['Recent pressure','Interrupted sleep','Feeling less connected'] };
 export const weeklyMood = [{day:'Mon',mood:3},{day:'Tue',mood:2},{day:'Wed',mood:3},{day:'Thu',mood:4},{day:'Fri',mood:3},{day:'Sat',mood:4},{day:'Sun',mood:4}];
 export const monthlyMood = [{week:'W1',mood:2.8},{week:'W2',mood:3.2},{week:'W3',mood:3.5},{week:'W4',mood:3.8}];

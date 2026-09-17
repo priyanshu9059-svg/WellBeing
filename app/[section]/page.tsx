@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/app-shell';
+import { LoginPage } from '@/features/auth/login-page';
 import { ChatExperience } from '@/features/chat/chat-experience';
 import { ExerciseLibrary } from '@/features/exercises/exercise-library';
 import { Journal } from '@/features/journal/journal';
@@ -14,6 +15,7 @@ import type { TranslationKey } from '@/components/language-provider';
 
 const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;content:React.ReactNode}> = {
   support:{title:'supportTitle',description:'supportDescription',content:<SupportHome/>},
+  login:{title:'accessTitle',description:'accessDescription',content:<LoginPage/>},
   chat:{title:'chatTitle',description:'chatDescription',content:<ChatExperience/>},
   mood:{title:'moodTitle',description:'moodDescription',content:<MoodDashboard/>},
   journal:{title:'journalTitle',description:'journalDescription',content:<Journal/>},

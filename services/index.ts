@@ -1,6 +1,6 @@
-import type { ChatMessage, ContactConsent, JournalEntry, MoodEntry, SafetyPlan, WellbeingSnapshot } from '@/types';
+import type { ChatMessage, ContactConsent, JournalEntry, MoodEntry, SafetyPlan, WellbeingSnapshot, Language } from '@/types';
 export type ServiceResult<T> = { data:T|null; loading:boolean; error:string|null };
-export interface ChatService { send(message:string, signal?:AbortSignal):Promise<ChatMessage> }
+export interface ChatService { send(message:string, signal?:AbortSignal, language?:Language):Promise<ChatMessage> }
 export interface VoiceTranscriptionService { transcribe(blob:Blob, signal?:AbortSignal):Promise<string> }
 export interface VoiceAnalysisService { analyze(blob:Blob, signal?:AbortSignal):Promise<Record<string,string>> }
 export interface RiskScreeningService { screen(text:string, signal?:AbortSignal):Promise<{flagged:boolean}> }
@@ -16,9 +16,27 @@ export interface EmergencyService { connect(signal?:AbortSignal):Promise<never> 
 export interface OrganizationService { validateCode(code:string, signal?:AbortSignal):Promise<boolean> }
 export interface AnalyticsService { track(event:string, signal?:AbortSignal):Promise<void> }
 const delay = (ms:number, signal?:AbortSignal) => new Promise<void>((resolve,reject) => { const id=setTimeout(resolve,ms); signal?.addEventListener('abort',()=>{clearTimeout(id);reject(new DOMException('Aborted','AbortError'));}); });
-const supportiveReply = (message:string) => message.toLowerCase().includes('exam') ? 'It sounds like the pressure around your exams is taking up a lot of space. What feels most difficult about it right now?' : message.toLowerCase().includes('sleep') ? 'Not being able to rest can make everything feel heavier. Would you like to tell me what usually happens when you try to sleep?' : message.toLowerCase().includes('alone') ? 'Feeling alone with something difficult can hurt. I’m here to listen—what has today been like for you?' : 'I’m hearing that this is a lot to hold right now. What part would feel most helpful to talk through first?';
-export const mockChatService:ChatService = { async send(message,signal){ await delay(800,signal); return {id:crypto.randomUUID(),role:'assistant',text:supportiveReply(message),createdAt:new Date().toISOString()}; } };
-export class FutureApiChatService implements ChatService { async send(message:string,signal?:AbortSignal):Promise<ChatMessage>{ void message; void signal; throw new Error('Future API integration is not configured.'); } }
+const supportiveReply = (message:string, language:Language='English') => {
+  const lower = message.toLowerCase();
+  const exam = lower.includes('exam') || lower.includes('परीक्षा');
+  const sleep = lower.includes('sleep') || lower.includes('सो') || lower.includes('नींद');
+  const alone = lower.includes('alone') || lower.includes('lonely') || lower.includes('अकेल');
+  if (language === 'Hindi') {
+    if (exam) return 'लगता है exams का pressure बहुत जगह ले रहा है। अभी इसका सबसे मुश्किल हिस्सा क्या लग रहा है?';
+    if (sleep) return 'आराम न मिलना हर चीज को भारी बना सकता है। जब आप सोने की कोशिश करते हैं तो आमतौर पर क्या होता है?';
+    if (alone) return 'मुश्किल चीजों के साथ अकेला महसूस करना दर्द दे सकता है। मैं सुनने के लिए यहां हूं—आज का दिन कैसा रहा?';
+    return 'मैं समझ रहा हूं कि अभी यह बहुत भारी लग रहा है। किस हिस्से पर पहले बात करना सबसे helpful लगेगा?';
+  }
+  if (language === 'Hinglish') {
+    if (exam) return 'Lagta hai exams ka pressure kaafi space le raha hai. Abhi iska sabse difficult part kya feel ho raha hai?';
+    if (sleep) return 'Rest na milna sab kuch heavier bana sakta hai. Jab sone ki try karte ho, usually kya hota hai?';
+    if (alone) return 'Difficult cheez ke saath lonely feel karna hurt kar sakta hai. Main sunne ke liye yahan hoon—aaj ka din kaisa raha?';
+    return 'Mujhe sunai de raha hai ki abhi ye kaafi heavy hai. Kis part ko pehle talk through karna helpful lagega?';
+  }
+  return exam ? 'It sounds like the pressure around your exams is taking up a lot of space. What feels most difficult about it right now?' : sleep ? 'Not being able to rest can make everything feel heavier. Would you like to tell me what usually happens when you try to sleep?' : alone ? 'Feeling alone with something difficult can hurt. I’m here to listen—what has today been like for you?' : 'I’m hearing that this is a lot to hold right now. What part would feel most helpful to talk through first?';
+};
+export const mockChatService:ChatService = { async send(message,signal,language){ await delay(800,signal); return {id:crypto.randomUUID(),role:'assistant',text:supportiveReply(message,language),createdAt:new Date().toISOString()}; } };
+export class FutureApiChatService implements ChatService { async send(message:string,signal?:AbortSignal,language?:Language):Promise<ChatMessage>{ void message; void signal; void language; throw new Error('Future API integration is not configured.'); } }
 
 const notConfigured = () => Promise.reject(new Error('Future API integration is not configured.'));
 export const mockServices = {

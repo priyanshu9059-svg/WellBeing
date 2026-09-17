@@ -5,30 +5,67 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Archive, History, Mic, Paperclip, Pause, Play, RotateCcw, Send, Square, ThumbsDown, ThumbsUp, Trash2, Volume2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useLanguage } from '@/components/language-provider';
 import { crisisResources, HIGH_RISK_PHRASES } from '@/config/crisis-resources';
-import { suggestedPrompts } from '@/mocks/data';
+import { suggestedPromptsByLanguage } from '@/mocks/data';
 import { mockChatService } from '@/services';
 import type { ChatMessage } from '@/types';
 import { newId } from '@/lib/utils';
 
-const welcome:ChatMessage={id:'welcome',role:'assistant',text:'I’m here with you. You can share as much or as little as feels comfortable. What is on your mind?',createdAt:new Date().toISOString()};
+const chatCopy = {
+  English: {
+    welcome: 'I’m here with you. You can share as much or as little as feels comfortable. What is on your mind?',
+    paused: 'I’m sorry—the local response paused. You can try sending that again.',
+    companionTitle: 'A quiet conversation',
+    companionSub: 'Support companion · not a therapist',
+    newConversation: 'New conversation',
+    placeholder: 'Type what’s on your mind…',
+    note: 'Mocked support can listen and suggest small next steps, but it cannot diagnose or replace professional care.',
+    typing: 'Support companion is typing',
+  },
+  Hindi: {
+    welcome: 'मैं आपके साथ हूं। जितना सहज लगे उतना साझा करें। आपके मन में अभी क्या चल रहा है?',
+    paused: 'माफ कीजिए—local response रुक गया। आप फिर से भेजकर कोशिश कर सकते हैं।',
+    companionTitle: 'शांत बातचीत',
+    companionSub: 'Support companion · therapist नहीं',
+    newConversation: 'नई बातचीत',
+    placeholder: 'जो मन में है वह लिखें…',
+    note: 'Mocked support सुन सकता है और छोटे next steps सुझा सकता है, लेकिन diagnosis या professional care की जगह नहीं लेता।',
+    typing: 'Support companion typing कर रहा है',
+  },
+  Hinglish: {
+    welcome: 'Main yahan hoon. Jitna comfortable lage utna share karo. Abhi mind mein kya chal raha hai?',
+    paused: 'Sorry—local response pause ho gaya. Aap dobara send karke try kar sakte ho.',
+    companionTitle: 'Ek quiet conversation',
+    companionSub: 'Support companion · therapist nahi',
+    newConversation: 'New conversation',
+    placeholder: 'Mind mein jo hai type karo…',
+    note: 'Mocked support sun sakta hai aur small next steps suggest kar sakta hai, but diagnosis ya professional care replace nahi karta.',
+    typing: 'Support companion typing kar raha hai',
+  },
+};
+
+const makeWelcome = (text:string):ChatMessage => ({id:'welcome',role:'assistant',text,createdAt:new Date().toISOString()});
 
 export function ChatExperience(){
-  const [messages,setMessages]=useState<ChatMessage[]>([welcome]); const [text,setText]=useState(''); const [typing,setTyping]=useState(false); const [flagged,setFlagged]=useState(false); const [historyOpen,setHistoryOpen]=useState(false); const [resources,setResources]=useState(false); const [confirmClear,setConfirmClear]=useState(false); const [voiceOpen,setVoiceOpen]=useState(false); const abortRef=useRef<AbortController|null>(null); const endRef=useRef<HTMLDivElement>(null);
+  const { language } = useLanguage();
+  const copy = chatCopy[language];
+  const [messages,setMessages]=useState<ChatMessage[]>([makeWelcome(copy.welcome)]); const [text,setText]=useState(''); const [typing,setTyping]=useState(false); const [flagged,setFlagged]=useState(false); const [historyOpen,setHistoryOpen]=useState(false); const [resources,setResources]=useState(false); const [confirmClear,setConfirmClear]=useState(false); const [voiceOpen,setVoiceOpen]=useState(false); const abortRef=useRef<AbortController|null>(null); const endRef=useRef<HTMLDivElement>(null);
   const sessionId=`WBS-${useId().replace(/[^a-z0-9]/gi,'').toUpperCase()}`;
   useEffect(()=>{ try{const saved=localStorage.getItem('wellbeing-support:conversation');if(saved)setMessages(JSON.parse(saved));}catch{} },[]);
+  useEffect(()=>{setMessages(m=>m.length===1&&m[0].id==='welcome'?[makeWelcome(copy.welcome)]:m)},[copy.welcome]);
   useEffect(()=>{localStorage.setItem('wellbeing-support:conversation',JSON.stringify(messages));endRef.current?.scrollIntoView({behavior:'smooth'});},[messages]);
-  async function send(value=text){ const clean=value.trim();if(!clean||typing)return; const user:ChatMessage={id:newId(),role:'user',text:clean,createdAt:new Date().toISOString()};setMessages(m=>[...m,user]);setText(''); if(HIGH_RISK_PHRASES.some(p=>clean.toLowerCase().includes(p))){setFlagged(true);return;} setTyping(true);const controller=new AbortController();abortRef.current=controller;try{const reply=await mockChatService.send(clean,controller.signal);setMessages(m=>[...m,reply]);}catch(e){if((e as Error).name!=='AbortError')setMessages(m=>[...m,{id:newId(),role:'assistant',text:'I’m sorry—the local response paused. You can try sending that again.',createdAt:new Date().toISOString()}]);}finally{setTyping(false);abortRef.current=null;} }
-  function clear(){setMessages([welcome]);setConfirmClear(false);setFlagged(false);}
+  async function send(value=text){ const clean=value.trim();if(!clean||typing)return; const user:ChatMessage={id:newId(),role:'user',text:clean,createdAt:new Date().toISOString()};setMessages(m=>[...m,user]);setText(''); if(HIGH_RISK_PHRASES.some(p=>clean.toLowerCase().includes(p))){setFlagged(true);return;} setTyping(true);const controller=new AbortController();abortRef.current=controller;try{const reply=await mockChatService.send(clean,controller.signal,language);setMessages(m=>[...m,reply]);}catch(e){if((e as Error).name!=='AbortError')setMessages(m=>[...m,{id:newId(),role:'assistant',text:copy.paused,createdAt:new Date().toISOString()}]);}finally{setTyping(false);abortRef.current=null;} }
+  function clear(){setMessages([makeWelcome(copy.welcome)]);setConfirmClear(false);setFlagged(false);}
   function feedback(id:string,value:'helpful'|'not-helpful'){setMessages(m=>m.map(x=>x.id===id?{...x,feedback:value}:x));}
   return <div className="chat-layout">
-    <Card className="chat-card"><div className="chat-top"><div className="companion"><span>✦</span><div><b>A quiet conversation</b><small>Support companion · not a therapist</small></div></div><div className="row"><button className="icon-button" onClick={()=>setHistoryOpen(true)} aria-label="Open conversation history"><History/></button><button className="icon-button" onClick={()=>setResources(true)} aria-label="Open support resources"><Archive/></button><Button variant="ghost" onClick={()=>setConfirmClear(true)}>New conversation</Button></div></div>
+    <Card className="chat-card"><div className="chat-top"><div className="companion"><span>✦</span><div><b>{copy.companionTitle}</b><small>{copy.companionSub}</small></div></div><div className="row"><button className="icon-button" onClick={()=>setHistoryOpen(true)} aria-label="Open conversation history"><History/></button><button className="icon-button" onClick={()=>setResources(true)} aria-label="Open support resources"><Archive/></button><Button variant="ghost" onClick={()=>setConfirmClear(true)}>{copy.newConversation}</Button></div></div>
       <div className="session-bar"><span>Anonymous session {sessionId}</span><span>Stored on this device</span></div>
       {flagged&&<section className="safeguard" role="alert"><b>You deserve immediate support.</b><p>Your message is still here. If you may act on these thoughts or are in immediate danger, call {crisisResources.teleManas.name} at {crisisResources.teleManas.number} or emergency services at {crisisResources.emergency.number}.</p><div className="row"><a className="btn btn-danger" href={crisisResources.teleManas.href}>Call {crisisResources.teleManas.name}</a><Link className="btn btn-secondary" href="/safety-plan">Open safety plan</Link><Button variant="ghost" onClick={()=>setFlagged(false)}>Return to conversation</Button></div><small>Prototype keyword safeguard — requires professional validation before production.</small></section>}
-      <div className="messages" aria-live="polite">{messages.map(msg=><div key={msg.id} className={`message-wrap ${msg.role}`}><div className="message">{msg.text}</div>{msg.role==='assistant'&&msg.id!=='welcome'&&<div className="feedback"><span>Was this helpful?</span><button onClick={()=>feedback(msg.id,'helpful')} aria-label="Helpful" className={msg.feedback==='helpful'?'selected':''}><ThumbsUp size={14}/></button><button onClick={()=>feedback(msg.id,'not-helpful')} aria-label="Not helpful" className={msg.feedback==='not-helpful'?'selected':''}><ThumbsDown size={14}/></button></div>}</div>)}{typing&&<div className="message-wrap assistant"><div className="message typing"><i/><i/><i/><span className="sr-only">Support companion is typing</span></div></div>}<div ref={endRef}/></div>
-      {messages.length<4&&<div className="prompt-chips">{suggestedPrompts.map(p=><button key={p} onClick={()=>send(p)}>{p}</button>)}</div>}
-      <div className="composer"><button className="icon-button" aria-label="Attachment unavailable in prototype" title="Attachment unavailable"><Paperclip/></button><textarea value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Type what’s on your mind…" rows={1} aria-label="Message"/><button className="icon-button" onClick={()=>setVoiceOpen(true)} aria-label="Voice mode"><Mic/></button>{typing?<button className="send-button stop" onClick={()=>abortRef.current?.abort()} aria-label="Stop response"><Square/></button>:<button className="send-button" onClick={()=>send()} aria-label="Send message"><Send/></button>}</div>
-      <p className="composer-note">Mocked support can listen and suggest small next steps, but it cannot diagnose or replace professional care.</p>
+      <div className="messages" aria-live="polite">{messages.map(msg=><div key={msg.id} className={`message-wrap ${msg.role}`}><div className="message">{msg.text}</div>{msg.role==='assistant'&&msg.id!=='welcome'&&<div className="feedback"><span>Was this helpful?</span><button onClick={()=>feedback(msg.id,'helpful')} aria-label="Helpful" className={msg.feedback==='helpful'?'selected':''}><ThumbsUp size={14}/></button><button onClick={()=>feedback(msg.id,'not-helpful')} aria-label="Not helpful" className={msg.feedback==='not-helpful'?'selected':''}><ThumbsDown size={14}/></button></div>}</div>)}{typing&&<div className="message-wrap assistant"><div className="message typing"><i/><i/><i/><span className="sr-only">{copy.typing}</span></div></div>}<div ref={endRef}/></div>
+      {messages.length<4&&<div className="prompt-chips">{suggestedPromptsByLanguage[language].map(p=><button key={p} onClick={()=>send(p)}>{p}</button>)}</div>}
+      <div className="composer"><button className="icon-button" aria-label="Attachment unavailable in prototype" title="Attachment unavailable"><Paperclip/></button><textarea value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}} placeholder={copy.placeholder} rows={1} aria-label="Message"/><button className="icon-button" onClick={()=>setVoiceOpen(true)} aria-label="Voice mode"><Mic/></button>{typing?<button className="send-button stop" onClick={()=>abortRef.current?.abort()} aria-label="Stop response"><Square/></button>:<button className="send-button" onClick={()=>send()} aria-label="Send message"><Send/></button>}</div>
+      <p className="composer-note">{copy.note}</p>
     </Card>
     {voiceOpen&&<VoicePanel onClose={()=>setVoiceOpen(false)} onTranscript={t=>{setText(t);setVoiceOpen(false);}}/>}
     {confirmClear&&<div className="mini-modal" role="dialog" aria-modal="true" aria-labelledby="clear-title"><div><h3 id="clear-title">Clear this conversation?</h3><p>This removes the locally stored messages from this device.</p><div className="row"><Button variant="danger" onClick={clear}>Clear conversation</Button><Button variant="secondary" onClick={()=>setConfirmClear(false)}>Keep it</Button></div></div></div>}
