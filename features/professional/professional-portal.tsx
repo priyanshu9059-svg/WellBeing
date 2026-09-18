@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Activity, Bell, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, FileText, Headphones, LockKeyhole, LogOut, MessageSquareText, Phone, Search, ShieldCheck, UsersRound, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -150,7 +151,7 @@ export function ProfessionalPortal() {
     } catch {
       /* ignore */
     }
-    setSignedIn(true);
+    setSignedIn(false);
     setUser(null);
     setDashboard(null);
     setUsingDemo(true);
@@ -312,6 +313,7 @@ function ProfessionalAccess({
             ? 'Connected to the support API. Use verified professional credentials.'
             : 'This is a simulated access flow. Production requires verified credentials, secure authentication, audit logs, and role-based permissions.'}
         </p>
+        <Link className="text-link" href="/login">USER LOG IN</Link>
       </Card>
     </div>
   );

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
 import { getServices } from '@/services';
+import { createLocalUser, signInLocalUser } from '@/lib/local-user-auth';
 
 function apiConfigured() {
   return Boolean((process.env.NEXT_PUBLIC_API_BASE_URL || '').trim());
@@ -52,9 +53,9 @@ const copy = {
   },
 };
 
-export function LoginPage() {
+export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | 'signup' }) {
   const { language } = useLanguage();
-  const [mode, setMode] = useState<'login' | 'signup'>('signup');
+  const [mode, setMode] = useState<'login' | 'signup'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -115,10 +116,6 @@ export function LoginPage() {
           disabled={busy}
           onClick={async () => {
             setError('');
-            if (!apiConfigured()) {
-              setError('The account service is not configured. Start the backend and try again.');
-              return;
-            }
             if (mode === 'signup' && name.trim().length < 2) {
               setError('Please enter your name (at least 2 characters).');
               return;
@@ -129,10 +126,12 @@ export function LoginPage() {
             }
             setBusy(true);
             try {
+              const useApi = apiConfigured();
               if (mode === 'login') {
-                await getServices().authentication.signIn(email.trim(), password);
+                if (useApi) await getServices().authentication.signIn(email.trim(), password);
+                else await signInLocalUser(email.trim(), password);
                 router.push('/support');
-              } else {
+              } else if (useApi) {
                 const result = await getServices().authentication.signUp({
                   email: email.trim(),
                   password,
@@ -140,6 +139,13 @@ export function LoginPage() {
                   role: 'USER',
                 });
                 router.push(result.needsProfile !== false ? '/complete-profile' : '/support');
+              } else {
+                await createLocalUser({
+                  displayName: name.trim(),
+                  identifier: email.trim(),
+                  password,
+                });
+                router.push('/complete-profile');
               }
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : 'Unable to continue.');
