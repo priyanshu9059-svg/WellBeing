@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogIn, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 export function AuthGate() {
@@ -10,10 +10,10 @@ export function AuthGate() {
       <Card>
         <div className="auth-gate-icon"><ShieldCheck /></div>
         <p className="kicker">Private support space</p>
-        <h2>Log in to continue</h2>
-        <p>Your support dashboard, conversations, journal, and wellbeing records are available after you sign in.</p>
-        <Link className="btn btn-primary" href="/login"><LogIn size={17} /> Log in or sign up</Link>
-        <small>Your urgent-help resources remain available without an account.</small>
+        <h2>Support is open</h2>
+        <p>Your support dashboard, conversations, journal, and wellbeing tools are available without an account.</p>
+        <Link className="btn btn-primary" href="/support"><ArrowRight size={17} /> Open support tools</Link>
+        <small>No login or signup is required.</small>
       </Card>
     </div>
   );
