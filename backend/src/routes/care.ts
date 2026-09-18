@@ -130,48 +130,69 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
   }
 });
 
-const proRoles = [Role.COUNSELLOR, Role.PSYCHOLOGIST, Role.PSYCHIATRIST] as const;
+const proRoles = [Role.COUNSELLOR, Role.PSYCHOLOGIST, Role.PSYCHIATRIST, Role.ORG_ADMIN] as const;
 
 export const professionalRouter = Router();
 professionalRouter.use(requireAuth, requireRole(...proRoles));
 
 professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
   try {
-    const consented = await prisma.contactConsent.findMany({
-      where: { allowWellbeingSummary: true },
-      include: {
-        user: {
-          include: {
-            moodEntries: { orderBy: { date: 'desc' }, take: 5 },
-            wellbeingSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
-          },
-        },
+    const patientUsers = await prisma.user.findMany({
+      where: {
+        role: Role.USER,
+        OR: [
+          { contactConsent: { is: { allowWellbeingSummary: true } } },
+          { contactConsent: { is: { allowContact: true } } },
+          { counsellorRequests: { some: {} } },
+          { location: { not: '' } },
+          { abhaId: { not: '' } },
+          { phone: { not: '' } },
+          { gender: { not: '' } },
+          { age: { not: null } },
+        ],
       },
-      take: 20,
+      include: {
+        contactConsent: true,
+        moodEntries: { orderBy: { date: 'desc' }, take: 5 },
+        wellbeingSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 40,
     });
 
-    const patients = consented.map((c) => {
-      const moods = c.user.moodEntries.map((m) => Math.round((m.mood / 5) * 100));
-      const snap = c.user.wellbeingSnapshots[0];
+    const patients = patientUsers.map((user) => {
+      const moods = user.moodEntries.map((m) => Math.round((m.mood / 5) * 100));
+      const snap = user.wellbeingSnapshots[0];
       const score = snap?.confidence ?? (moods[0] ?? 40);
       const level =
         score >= 75 ? 'High' : score >= 55 ? 'Elevated' : score >= 35 ? 'Moderate' : 'Low';
+      const c = user.contactConsent;
       return {
-        id: c.user.id,
-        name: c.user.displayName || `Anonymous ${c.user.id.slice(-4)}`,
+        id: user.id,
+        name: user.displayName || `Anonymous ${user.id.slice(-4)}`,
         score,
         level,
         signal: snap?.factorsJson
           ? (JSON.parse(snap.factorsJson) as string[]).join(', ') || 'Needs review'
           : 'Follow-up check-in',
-        last: c.updatedAt.toISOString(),
+        last: user.updatedAt.toISOString(),
         consent: [
-          c.allowWellbeingSummary ? 'Care summary' : null,
-          c.allowContact ? 'contact' : null,
+          c?.allowWellbeingSummary ? 'Care summary' : null,
+          c?.allowContact ? 'contact' : null,
         ]
           .filter(Boolean)
-          .join(' + '),
+          .join(' + ') || 'Not shared',
         mood: moods.length ? moods.reverse() : [40, 45, 42, 50, score],
+        profile: {
+          location: user.location || '',
+          abhaId: user.abhaId || '',
+          phone: user.phone || c?.mobile || '',
+          gender: user.gender || '',
+          age: user.age,
+          email: user.email || c?.email || '',
+          skipped: user.profileSkipped,
+          updatedAt: user.profileUpdatedAt?.toISOString() ?? null,
+        },
       };
     });
 

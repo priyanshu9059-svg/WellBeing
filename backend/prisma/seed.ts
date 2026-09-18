@@ -148,6 +148,13 @@ async function main() {
       displayName: 'Anonymous 2041',
       anonymous: true,
       anonymousKey: 'demo-patient-2041',
+      location: 'Indiranagar, Bengaluru',
+      abhaId: '12-3456-7890-1234',
+      phone: '+91 98765 43210',
+      gender: 'Prefer not to say',
+      age: 22,
+      profileSkipped: false,
+      profileUpdatedAt: new Date(),
       contactConsent: {
         create: {
           anonymous: true,
@@ -155,6 +162,7 @@ async function main() {
           allowWellbeingSummary: true,
           preferredMethod: 'Mobile',
           preferredTime: 'Morning',
+          mobile: '+91 98765 43210',
         },
       },
       moodEntries: {

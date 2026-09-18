@@ -10,6 +10,8 @@ import { AboutPage, CrisisPage, FaqPage, NotFound, OfflinePage, SettingsPage, Su
 import { WellbeingAnalysis } from '@/features/wellbeing/wellbeing-analysis';
 import { ConsultancyHub } from '@/features/consultancy/consultancy-hub';
 import { ProfessionalPortal } from '@/features/professional/professional-portal';
+import { ProfileDetailsPage } from '@/features/profile/profile-details';
+import { UserSignup } from '@/features/profile/user-signup';
 import type { TranslationKey } from '@/components/language-provider';
 
 const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;content:React.ReactNode}> = {
@@ -25,6 +27,9 @@ const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;co
   crisis:{title:'crisisTitle',description:'crisisDescription',content:<CrisisPage/>},
   privacy:{title:'privacyTitle',description:'privacyDescription',content:<PrivacyCenter/>},
   settings:{title:'settingsTitle',description:'settingsDescription',content:<SettingsPage/>},
+  signup:{title:'signupTitle',description:'signupDescription',content:<UserSignup/>},
+  'complete-profile':{title:'completeProfileTitle',description:'completeProfileDescription',content:<ProfileDetailsPage mode="complete"/>},
+  profile:{title:'profileTitle',description:'profileDescription',content:<ProfileDetailsPage mode="edit"/>},
   'access-code':{title:'accessTitle',description:'accessDescription',content:<AccessCode/>},
   'organization-demo':{title:'orgTitle',description:'orgDescription',content:<OrganizationDemo/>},
   trust:{title:'trustTitle',description:'trustDescription',content:<TrustPage/>},

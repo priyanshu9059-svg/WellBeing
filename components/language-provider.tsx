@@ -45,6 +45,12 @@ export type TranslationKey =
   | 'privacyDescription'
   | 'settingsTitle'
   | 'settingsDescription'
+  | 'signupTitle'
+  | 'signupDescription'
+  | 'completeProfileTitle'
+  | 'completeProfileDescription'
+  | 'profileTitle'
+  | 'profileDescription'
   | 'accessTitle'
   | 'accessDescription'
   | 'orgTitle'
@@ -172,6 +178,12 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     privacyDescription: 'See and control what this prototype stores in your browser.',
     settingsTitle: 'Settings',
     settingsDescription: 'Adjust language, privacy, and comfort preferences.',
+    signupTitle: 'Create account',
+    signupDescription: 'Sign up to sync your support tools. Optional details come next.',
+    completeProfileTitle: 'Optional details',
+    completeProfileDescription: 'Location, ABHA ID, phone, gender, and age — all skippable.',
+    profileTitle: 'Your profile',
+    profileDescription: 'View or update location, ABHA ID, phone, gender, and age anytime.',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'A demo code can personalize context without asking who you are.',
     orgTitle: 'Organization wellbeing overview',
@@ -298,6 +310,12 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     privacyDescription: 'देखें और नियंत्रित करें कि यह prototype आपके browser में क्या रखता है।',
     settingsTitle: 'सेटिंग्स',
     settingsDescription: 'भाषा, privacy और comfort preferences बदलें।',
+    signupTitle: 'खाता बनाएँ',
+    signupDescription: 'सपोर्ट टूल्स सिंक करने के लिए साइन अप करें। वैकल्पिक विवरण आगे आएंगे।',
+    completeProfileTitle: 'वैकल्पिक विवरण',
+    completeProfileDescription: 'स्थान, ABHA ID, फ़ोन, लिंग और आयु — सब छोड़ सकते हैं।',
+    profileTitle: 'आपकी प्रोफ़ाइल',
+    profileDescription: 'स्थान, ABHA ID, फ़ोन, लिंग और आयु कभी भी देखें या बदलें।',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'Demo code बिना आपकी पहचान पूछे context personalize कर सकता है।',
     orgTitle: 'Organization wellbeing overview',
@@ -424,6 +442,12 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     privacyDescription: 'Dekho aur control karo ki prototype browser mein kya store karta hai.',
     settingsTitle: 'Settings',
     settingsDescription: 'Language, privacy aur comfort preferences adjust karo.',
+    signupTitle: 'Account banao',
+    signupDescription: 'Support tools sync karne ke liye sign up karo. Optional details baad mein aate hain.',
+    completeProfileTitle: 'Optional details',
+    completeProfileDescription: 'Location, ABHA ID, phone, gender, aur age — sab skip kar sakte ho.',
+    profileTitle: 'Aapki profile',
+    profileDescription: 'Location, ABHA ID, phone, gender, aur age kabhi bhi dekho ya badlo.',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'Demo code bina identity pooche context personalize kar sakta hai.',
     orgTitle: 'Organization wellbeing overview',

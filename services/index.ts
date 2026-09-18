@@ -30,14 +30,16 @@ export interface WellbeingAnalysisService {
   analyze(input: Record<string, unknown>, signal?: AbortSignal): Promise<WellbeingSnapshot>;
 }
 export interface AuthenticationService {
-  signIn(email: string, password: string, signal?: AbortSignal): Promise<{ token: string; user: AuthUser }>;
-  signUp(input: ProfessionalSignup, signal?: AbortSignal): Promise<{ token: string; user: AuthUser }>;
+  signIn(email: string, password: string, signal?: AbortSignal): Promise<{ token: string; user: AuthUser; needsProfile?: boolean }>;
+  signUp(input: ProfessionalSignup, signal?: AbortSignal): Promise<{ token: string; user: AuthUser; needsProfile?: boolean }>;
   me(signal?: AbortSignal): Promise<AuthUser | null>;
   signOut(): Promise<void>;
 }
 export interface UserProfileService {
   update(input: ContactConsent, signal?: AbortSignal): Promise<ContactConsent>;
   getConsent?(signal?: AbortSignal): Promise<ContactConsent>;
+  getDetails?(signal?: AbortSignal): Promise<UserProfileDetails>;
+  saveDetails?(input: Partial<UserProfileDetails> & { skipped?: boolean }, signal?: AbortSignal): Promise<UserProfileDetails>;
 }
 export interface JournalService {
   list(signal?: AbortSignal): Promise<JournalEntry[]>;
@@ -95,8 +97,29 @@ export type ProfessionalSignup = {
   email: string;
   password: string;
   displayName: string;
-  role: 'COUNSELLOR' | 'PSYCHOLOGIST' | 'PSYCHIATRIST';
-  licenceNumber: string;
+  role: 'USER' | 'COUNSELLOR' | 'PSYCHOLOGIST' | 'PSYCHIATRIST';
+  licenceNumber?: string;
+};
+
+export type UserProfileDetails = {
+  location: string;
+  abhaId: string;
+  phone: string;
+  gender: string;
+  age: number | null;
+  skipped?: boolean;
+  updatedAt?: string | null;
+};
+
+export type PatientProfile = {
+  location: string;
+  abhaId: string;
+  phone: string;
+  gender: string;
+  age: number | null;
+  email?: string;
+  skipped?: boolean;
+  updatedAt?: string | null;
 };
 
 export type CarePlaceDto = {
@@ -147,6 +170,7 @@ export type ProfessionalDashboard = {
     last: string;
     consent: string;
     mood: number[];
+    profile?: PatientProfile;
   }>;
   queries: Array<{ id: string; patient: string; text: string; age: string; priority: string; status: string }>;
   appointments: Array<{
@@ -285,6 +309,31 @@ export const mockServices = {
       await delay(100, signal);
       return input;
     },
+    async getDetails(signal) {
+      await delay(80, signal);
+      try {
+        const raw = localStorage.getItem('wellbeing-support:profile-details');
+        return raw
+          ? (JSON.parse(raw) as UserProfileDetails)
+          : { location: '', abhaId: '', phone: '', gender: '', age: null, skipped: false };
+      } catch {
+        return { location: '', abhaId: '', phone: '', gender: '', age: null, skipped: false };
+      }
+    },
+    async saveDetails(input, signal) {
+      await delay(100, signal);
+      const next: UserProfileDetails = {
+        location: input.location ?? '',
+        abhaId: input.abhaId ?? '',
+        phone: input.phone ?? '',
+        gender: input.gender ?? '',
+        age: input.age ?? null,
+        skipped: Boolean(input.skipped),
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('wellbeing-support:profile-details', JSON.stringify(next));
+      return next;
+    },
   },
   journal: <JournalService>{
     async list(signal) {
@@ -411,7 +460,7 @@ export const apiServices = {
       return data;
     },
     async signUp(input, signal) {
-      const data = await apiFetch<{ token: string; user: AuthUser }>('/api/auth/signup', {
+      const data = await apiFetch<{ token: string; user: AuthUser; needsProfile?: boolean }>('/api/auth/signup', {
         method: 'POST',
         body: input,
         auth: false,
@@ -439,6 +488,16 @@ export const apiServices = {
     },
     async update(input, signal) {
       return apiAuthed<ContactConsent>('/api/profile/consent', {
+        method: 'PUT',
+        body: input,
+        signal,
+      });
+    },
+    async getDetails(signal) {
+      return apiAuthed<UserProfileDetails>('/api/profile/details', { signal });
+    },
+    async saveDetails(input, signal) {
+      return apiAuthed<UserProfileDetails>('/api/profile/details', {
         method: 'PUT',
         body: input,
         signal,

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, type AuthedRequest } from '../lib/auth.js';
+import { audit, requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { analyzeWellbeing, analyzeVoiceHeuristic, screenRisk } from '../services/wellbeing.js';
 
 export const wellbeingRouter = Router();
@@ -143,6 +143,85 @@ profileRouter.patch('/preferences', async (req: AuthedRequest, res, next) => {
       data: { language: body.language },
     });
     res.json({ language: user.language });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const profileDetailsSchema = z.object({
+  location: z.string().max(200).optional(),
+  abhaId: z.string().max(20).optional(),
+  phone: z.string().max(20).optional(),
+  gender: z.string().max(40).optional(),
+  age: z.number().int().min(1).max(120).nullable().optional(),
+  skipped: z.boolean().optional(),
+});
+
+function mapProfileDetails(user: {
+  location: string;
+  abhaId: string;
+  phone: string;
+  gender: string;
+  age: number | null;
+  profileSkipped: boolean;
+  profileUpdatedAt: Date | null;
+}) {
+  return {
+    location: user.location || '',
+    abhaId: user.abhaId || '',
+    phone: user.phone || '',
+    gender: user.gender || '',
+    age: user.age,
+    skipped: user.profileSkipped,
+    updatedAt: user.profileUpdatedAt?.toISOString() ?? null,
+  };
+}
+
+profileRouter.get('/details', async (req: AuthedRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.json(mapProfileDetails(user));
+  } catch (e) {
+    next(e);
+  }
+});
+
+profileRouter.put('/details', async (req: AuthedRequest, res, next) => {
+  try {
+    const body = profileDetailsSchema.parse(req.body ?? {});
+    const data: {
+      location?: string;
+      abhaId?: string;
+      phone?: string;
+      gender?: string;
+      age?: number | null;
+      profileSkipped?: boolean;
+      profileUpdatedAt: Date;
+    } = { profileUpdatedAt: new Date() };
+
+    if (body.location !== undefined) data.location = body.location.trim();
+    if (body.abhaId !== undefined) data.abhaId = body.abhaId.trim();
+    if (body.phone !== undefined) data.phone = body.phone.trim();
+    if (body.gender !== undefined) data.gender = body.gender.trim();
+    if (body.age !== undefined) data.age = body.age;
+    if (body.skipped === true) data.profileSkipped = true;
+    if (
+      body.skipped !== true &&
+      (body.location || body.abhaId || body.phone || body.gender || body.age != null)
+    ) {
+      data.profileSkipped = false;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user!.id },
+      data,
+    });
+    await audit(req.user!.id, body.skipped ? 'profile.skipped' : 'profile.updated', {
+      hasAbha: Boolean(user.abhaId),
+      hasPhone: Boolean(user.phone),
+    });
+    res.json(mapProfileDetails(user));
   } catch (e) {
     next(e);
   }

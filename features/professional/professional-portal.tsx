@@ -17,6 +17,16 @@ type Patient = {
   last: string;
   consent: string;
   mood: number[];
+  profile?: {
+    location: string;
+    abhaId: string;
+    phone: string;
+    gender: string;
+    age: number | null;
+    email?: string;
+    skipped?: boolean;
+    updatedAt?: string | null;
+  };
 };
 type QueryItem = { id: string; patient: string; text: string; age: string; priority: string; status?: string };
 type ProAppointment = {
@@ -43,10 +53,10 @@ const API_TO_ROLE: Record<string, Role> = {
 };
 
 const demoPatients: Patient[] = [
-  { id: 'P-2041', name: 'Anonymous 2041', score: 82, level: 'High', signal: 'Distress language increased', last: '8 min ago', consent: 'Care summary + contact', mood: [42, 51, 49, 64, 82] },
-  { id: 'P-1837', name: 'Mira S.', score: 61, level: 'Elevated', signal: 'Low sleep, persistent worry', last: '22 min ago', consent: 'Care summary', mood: [48, 44, 57, 63, 61] },
-  { id: 'P-1902', name: 'Anonymous 1902', score: 38, level: 'Moderate', signal: 'Work stress and isolation', last: '1 hr ago', consent: 'Care summary + contact', mood: [55, 49, 41, 36, 38] },
-  { id: 'P-1755', name: 'Kabir R.', score: 19, level: 'Low', signal: 'Follow-up check-in', last: 'Yesterday', consent: 'Care summary', mood: [31, 27, 24, 22, 19] },
+  { id: 'P-2041', name: 'Anonymous 2041', score: 82, level: 'High', signal: 'Distress language increased', last: '8 min ago', consent: 'Care summary + contact', mood: [42, 51, 49, 64, 82], profile: { location: 'Indiranagar, Bengaluru', abhaId: '12-3456-7890-1234', phone: '+91 98765 43210', gender: 'Prefer not to say', age: 22 } },
+  { id: 'P-1837', name: 'Mira S.', score: 61, level: 'Elevated', signal: 'Low sleep, persistent worry', last: '22 min ago', consent: 'Care summary', mood: [48, 44, 57, 63, 61], profile: { location: 'Koramangala', abhaId: '', phone: '+91 98000 11223', gender: 'Woman', age: 28 } },
+  { id: 'P-1902', name: 'Anonymous 1902', score: 38, level: 'Moderate', signal: 'Work stress and isolation', last: '1 hr ago', consent: 'Care summary + contact', mood: [55, 49, 41, 36, 38], profile: { location: '', abhaId: '', phone: '', gender: '', age: null, skipped: true } },
+  { id: 'P-1755', name: 'Kabir R.', score: 19, level: 'Low', signal: 'Follow-up check-in', last: 'Yesterday', consent: 'Care summary', mood: [31, 27, 24, 22, 19], profile: { location: 'Whitefield', abhaId: '98-7654-3210-9876', phone: '+91 91234 55667', gender: 'Man', age: 31 } },
 ];
 
 const demoQueries: QueryItem[] = [
@@ -593,6 +603,16 @@ function Overview({
 }
 
 function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Patient) => void }) {
+  const profile = patient.profile;
+  const rows: [string, string][] = [
+    ['Location', profile?.location || 'Not provided'],
+    ['ABHA ID', profile?.abhaId || 'Not provided'],
+    ['Phone', profile?.phone || 'Not provided'],
+    ['Gender', profile?.gender || 'Not provided'],
+    ['Age', profile?.age != null ? String(profile.age) : 'Not provided'],
+  ];
+  if (profile?.email) rows.push(['Email', profile.email]);
+
   return (
     <Card className="patient-panel">
       <div className="patient-panel-head">
@@ -610,6 +630,20 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
           <b>Current care signal</b>
           <p>{patient.signal}. Review the conversation summary and use clinical judgment.</p>
         </div>
+      </div>
+      <div className="patient-profile-block">
+        <div className="chart-label">
+          <span>Profile details</span>
+          <small>{profile?.skipped ? 'User skipped optional profile' : profile?.updatedAt ? `Updated ${new Date(profile.updatedAt).toLocaleDateString()}` : 'From account profile'}</small>
+        </div>
+        <dl className="patient-profile-grid">
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
       <div className="signal-chart">
         <div className="chart-label">

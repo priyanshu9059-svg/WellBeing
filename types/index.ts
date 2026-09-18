@@ -16,3 +16,12 @@ export interface ContactConsent { anonymous:boolean; allowContact:boolean; allow
 export interface OrganizationAccess { code:string; valid:boolean; ageBand:string; anonymous:true }
 export interface AggregateInsight { label:string; value:number; groupSize:number }
 export interface PrivacyPreferences { anonymous:boolean; allowContact:boolean; allowWellbeingSummary:boolean; language:Language }
+export interface UserProfileDetails {
+  location: string;
+  abhaId: string;
+  phone: string;
+  gender: string;
+  age: number | null;
+  skipped?: boolean;
+  updatedAt?: string | null;
+}

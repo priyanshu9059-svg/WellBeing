@@ -65,10 +65,14 @@ authRouter.post('/signup', async (req, res, next) => {
         email: z.string().email(),
         password: z.string().min(8),
         displayName: z.string().min(2),
-        role: z.enum(['COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST']).default('COUNSELLOR'),
-        licenceNumber: z.string().min(3),
+        role: z.enum(['USER', 'COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST']).default('USER'),
+        licenceNumber: z.string().min(3).optional(),
       })
       .parse(req.body);
+
+    if (body.role !== 'USER' && !body.licenceNumber) {
+      return res.status(400).json({ error: 'Licence number is required for professional accounts.' });
+    }
 
     const existing = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
     if (existing) return res.status(409).json({ error: 'Email already registered.' });
@@ -79,13 +83,17 @@ authRouter.post('/signup', async (req, res, next) => {
         passwordHash: await bcrypt.hash(body.password, 10),
         displayName: body.displayName,
         role: body.role as Role,
-        anonymous: false,
+        anonymous: body.role === 'USER',
         licenceNumber: body.licenceNumber,
       },
     });
     await audit(user.id, 'auth.signup', { role: user.role });
     const token = signToken(user);
-    res.status(201).json({ token, user: publicUser(user) });
+    res.status(201).json({
+      token,
+      user: publicUser(user),
+      needsProfile: body.role === 'USER',
+    });
   } catch (e) {
     next(e);
   }

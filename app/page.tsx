@@ -38,7 +38,7 @@ export default function Home() {
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
         {step >= 0 && <div className="modal-backdrop" role="presentation"><section className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
           <button className="close-button" onClick={() => setStep(-1)} aria-label="Close onboarding">×</button><p className="step-label">Step {step + 1} of 3 · optional</p><h2 id="onboarding-title">{steps[step].title}</h2>
-          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option} className="option-button" href={option.includes('organization') ? '/access-code' : '/chat'}>{option}<span>→</span></Link> : <button key={option} className="option-button" onClick={() => setStep(step + 1)}>{option}<span>→</span></button>)}</div>
+          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option} className="option-button" href={option.includes('organization') ? '/access-code' : option.includes('Sign in') ? '/signup' : '/chat'}>{option}<span>→</span></Link> : <button key={option} className="option-button" onClick={() => setStep(step + 1)}>{option}<span>→</span></button>)}</div>
           <p className="modal-note">You can skip this and change your choices at any time.</p>
         </section></div>}
       </section>

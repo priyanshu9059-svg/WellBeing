@@ -44,6 +44,14 @@ model User {
   licenceNumber        String?
   available            Boolean  @default(true)
   acceptPriority       Boolean  @default(true)
+  /// Optional extended profile (skippable at signup; editable later)
+  location             String   @default("")
+  abhaId               String   @default("")
+  phone                String   @default("")
+  gender               String   @default("")
+  age                  Int?
+  profileSkipped       Boolean  @default(false)
+  profileUpdatedAt     DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
