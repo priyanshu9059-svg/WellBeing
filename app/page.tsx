@@ -21,7 +21,7 @@ export default function Home() {
           <div className="nav-actions">
             <Link href="/crisis" className="sos-top-link"><span aria-hidden="true">!</span> SOS</Link>
             <LanguageSelect id="language" />
-            <Link className="get-started-link" href="/support"><ArrowRight size={16}/> {copy.getStarted}</Link>
+            <Link className="get-started-link" href="/login"><ArrowRight size={16}/> {copy.getStarted}</Link>
           </div>
         </nav>
         <div className="sky-orb orb-one" aria-hidden="true" /><div className="sky-orb orb-two" aria-hidden="true" />
@@ -34,15 +34,9 @@ export default function Home() {
         </div>
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
         {step >= 0 && <div className="modal-backdrop" role="presentation"><section className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
-<<<<<<< HEAD
-          <button className="close-button" onClick={() => setStep(-1)} aria-label="Close onboarding">×</button><p className="step-label">Step {step + 1} of 3 · optional</p><h2 id="onboarding-title">{steps[step].title}</h2>
-          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option} className="option-button" href={option.includes('organization') ? '/access-code' : option.includes('Sign in') ? '/signup' : '/chat'}>{option}<span>→</span></Link> : <button key={option} className="option-button" onClick={() => setStep(step + 1)}>{option}<span>→</span></button>)}</div>
-          <p className="modal-note">You can skip this and change your choices at any time.</p>
-=======
           <button className="close-button" onClick={() => setStep(-1)} aria-label={copy.close}>×</button><p className="step-label">{copy.stepLabel(step + 1)}</p><h2 id="onboarding-title">{steps[step].title}</h2>
-          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option.label} className="option-button" href={option.href}>{option.label}<span>→</span></Link> : <button key={option.label} className="option-button" onClick={() => setStep(step + 1)}>{option.label}<span>→</span></button>)}</div>
+          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option.label} className="option-button" href={option.href || '/chat'}>{option.label}<span>→</span></Link> : <button key={option.label} className="option-button" onClick={() => setStep(step + 1)}>{option.label}<span>→</span></button>)}</div>
           <p className="modal-note">{copy.modalNote}</p>
->>>>>>> 7b7c94b6ceb10cd83cbf00beb0df18926b88969b
         </section></div>}
       </section>
       <section className="landing-content" aria-labelledby="how-title">
@@ -78,7 +72,7 @@ const landingCopy = {
     steps: [
       { title: 'How would you like to begin?', options: [{ label: 'Type a message' }, { label: 'Talk using my voice' }, { label: 'I’m not sure yet' }] },
       { title: 'What feels closest to what you’re experiencing?', options: [{ label: 'I feel afraid or unsafe' }, { label: 'I feel overwhelmed' }, { label: 'I feel lonely' }, { label: 'Something difficult happened' }, { label: 'I’m having distressing thoughts' }, { label: 'I mainly need someone to listen' }, { label: 'I’m not sure' }] },
-      { title: 'Choose what feels private enough', options: [{ label: 'Continue anonymously', href: '/chat' }, { label: 'Open support tools', href: '/support' }, { label: 'Enter organization or campus code', href: '/access-code' }] },
+      { title: 'Choose what feels private enough', options: [{ label: 'Continue anonymously', href: '/chat' }, { label: 'Create account / sign in', href: '/login' }, { label: 'Enter organization or campus code', href: '/access-code' }] },
     ],
   },
   Hindi: {
@@ -90,7 +84,7 @@ const landingCopy = {
     steps: [
       { title: 'आप कैसे शुरू करना चाहेंगे?', options: [{ label: 'Message type करें' }, { label: 'Voice से बात करें' }, { label: 'अभी पक्का नहीं' }] },
       { title: 'आपके अनुभव के सबसे करीब क्या है?', options: [{ label: 'मुझे डर या unsafe महसूस हो रहा है' }, { label: 'मैं overwhelmed महसूस कर रहा/रही हूं' }, { label: 'मैं अकेला/अकेली महसूस कर रहा/रही हूं' }, { label: 'कुछ मुश्किल हुआ है' }, { label: 'Distressing thoughts आ रहे हैं' }, { label: 'मुझे बस कोई सुनने वाला चाहिए' }, { label: 'अभी पक्का नहीं' }] },
-      { title: 'जो private लगे वह चुनें', options: [{ label: 'Anonymous जारी रखें', href: '/chat' }, { label: 'Support tools खोलें', href: '/support' }, { label: 'Organization या campus code डालें', href: '/access-code' }] },
+      { title: 'जो private लगे वह चुनें', options: [{ label: 'Anonymous जारी रखें', href: '/chat' }, { label: 'Account बनाएं / Sign in', href: '/login' }, { label: 'Organization या campus code डालें', href: '/access-code' }] },
     ],
   },
   Hinglish: {
@@ -102,7 +96,7 @@ const landingCopy = {
     steps: [
       { title: 'Kaise begin karna chahoge?', options: [{ label: 'Message type karo' }, { label: 'Voice se baat karo' }, { label: 'Abhi sure nahi' }] },
       { title: 'Jo feel ho raha hai uske closest kya hai?', options: [{ label: 'Mujhe afraid ya unsafe feel ho raha hai' }, { label: 'Main overwhelmed feel kar raha/rahi hoon' }, { label: 'Main lonely feel kar raha/rahi hoon' }, { label: 'Kuch difficult hua hai' }, { label: 'Distressing thoughts aa rahe hain' }, { label: 'Mujhe mainly koi sunne wala chahiye' }, { label: 'Abhi sure nahi' }] },
-      { title: 'Jo private enough lage woh choose karo', options: [{ label: 'Anonymously continue karo', href: '/chat' }, { label: 'Support tools kholo', href: '/support' }, { label: 'Organization ya campus code enter karo', href: '/access-code' }] },
+      { title: 'Jo private enough lage woh choose karo', options: [{ label: 'Anonymously continue karo', href: '/chat' }, { label: 'Account banao / sign in', href: '/login' }, { label: 'Organization ya campus code enter karo', href: '/access-code' }] },
     ],
   },
 };

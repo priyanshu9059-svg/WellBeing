@@ -21,7 +21,7 @@ const copy = {
     consent: 'Keep my account private by default',
     consentCopy: 'You can choose what to share after sign up.',
     submit: ['Log in', 'Sign up'],
-    note: 'After sign up, we can ask optional onboarding prompts and personalize the experience in your preferred language.',
+    note: 'After sign up you can add optional details (location, ABHA ID, phone, gender, age) or skip them.',
   },
   Hindi: {
     tabs: ['Log in', 'Sign up'],
@@ -33,7 +33,7 @@ const copy = {
     consent: 'Account default रूप से private रखें',
     consentCopy: 'Sign up के बाद आप चुन सकते हैं कि क्या share करना है।',
     submit: ['Log in', 'Sign up'],
-    note: 'Sign up के बाद optional onboarding prompts आ सकते हैं और experience आपकी चुनी भाषा में personalize होगा।',
+    note: 'Sign up के बाद optional details (location, ABHA ID, phone, gender, age) जोड़ सकते हैं या छोड़ सकते हैं।',
   },
   Hinglish: {
     tabs: ['Log in', 'Sign up'],
@@ -45,13 +45,13 @@ const copy = {
     consent: 'Account default private rakho',
     consentCopy: 'Sign up ke baad aap choose kar sakte ho kya share karna hai.',
     submit: ['Log in', 'Sign up'],
-    note: 'Sign up ke baad optional onboarding prompts aa sakte hain aur experience preferred language mein personalize hoga.',
+    note: 'Sign up ke baad optional details (location, ABHA ID, phone, gender, age) add kar sakte ho ya skip kar sakte ho.',
   },
 };
 
 export function LoginPage() {
   const { language } = useLanguage();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -70,23 +70,87 @@ export function LoginPage() {
         </div>
         <p className="kicker">{text.kicker[index]}</p>
         <h2>{text.title[index]}</h2>
-        {mode === 'signup' && <label className="field"><span>{text.name}</span><span className="input-icon"><UserRound/><input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></span></label>}
-        <label className="field"><span>{text.email}</span><span className="input-icon"><Mail/><input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></span></label>
-        <label className="field"><span>{text.password}</span><span className="input-icon"><LockKeyhole/><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></span></label>
-        {mode === 'signup' && <label className="check"><input type="checkbox" defaultChecked/><span><b>{text.consent}</b><small>{text.consentCopy}</small></span></label>}
-        <Button className="auth-submit" disabled={busy} onClick={async () => {
-          setError('');
-          if (!isApiEnabled()) { setError('The account service is not configured. Start the backend and try again.'); return; }
-          setBusy(true);
-          try {
-            if (mode === 'login') await getServices().authentication.signIn(email, password);
-            else await getServices().authentication.signUp({ email, password, displayName: name, role: 'USER', licenceNumber: '' });
-            router.push('/support');
-          } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to continue.'); }
-          finally { setBusy(false); }
-        }}>{busy ? 'Please wait…' : text.submit[index]} <ArrowRight/></Button>
+        {mode === 'signup' && (
+          <label className="field">
+            <span>{text.name}</span>
+            <span className="input-icon">
+              <UserRound />
+              <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" />
+            </span>
+          </label>
+        )}
+        <label className="field">
+          <span>{text.email}</span>
+          <span className="input-icon">
+            <Mail />
+            <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+          </span>
+        </label>
+        <label className="field">
+          <span>{text.password}</span>
+          <span className="input-icon">
+            <LockKeyhole />
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            />
+          </span>
+        </label>
+        {mode === 'signup' && (
+          <label className="check">
+            <input type="checkbox" defaultChecked />
+            <span>
+              <b>{text.consent}</b>
+              <small>{text.consentCopy}</small>
+            </span>
+          </label>
+        )}
+        <Button
+          className="auth-submit"
+          disabled={busy}
+          onClick={async () => {
+            setError('');
+            if (!isApiEnabled()) {
+              setError('The account service is not configured. Start the backend and try again.');
+              return;
+            }
+            if (mode === 'signup' && name.trim().length < 2) {
+              setError('Please enter your name (at least 2 characters).');
+              return;
+            }
+            if (password.length < 8) {
+              setError('Password must be at least 8 characters.');
+              return;
+            }
+            setBusy(true);
+            try {
+              if (mode === 'login') {
+                await getServices().authentication.signIn(email.trim(), password);
+                router.push('/support');
+              } else {
+                const result = await getServices().authentication.signUp({
+                  email: email.trim(),
+                  password,
+                  displayName: name.trim(),
+                  role: 'USER',
+                });
+                router.push(result.needsProfile !== false ? '/complete-profile' : '/support');
+              }
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : 'Unable to continue.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Please wait…' : text.submit[index]} <ArrowRight />
+        </Button>
         {error && <p className="error-text">{error}</p>}
-        <Link className="text-link" href="/crisis">Need urgent help without logging in?</Link>
+        <Link className="text-link" href="/crisis">
+          Need urgent help without logging in?
+        </Link>
         <p className="fine-print">{text.note}</p>
       </Card>
     </div>

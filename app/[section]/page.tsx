@@ -9,12 +9,12 @@ import { AboutPage, CrisisPage, FaqPage, NotFound, OfflinePage, SettingsPage, Su
 import { ConsultancyHub } from '@/features/consultancy/consultancy-hub';
 import { ProfessionalPortal } from '@/features/professional/professional-portal';
 import { ProfileDetailsPage } from '@/features/profile/profile-details';
-import { UserSignup } from '@/features/profile/user-signup';
+import { LoginPage } from '@/features/auth/login-page';
 import type { TranslationKey } from '@/components/language-provider';
 
 const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;content:React.ReactNode}> = {
   support:{title:'supportTitle',description:'supportDescription',content:<SupportHome/>},
-  login:{title:'supportTitle',description:'supportDescription',content:<SupportHome/>},
+  login:{title:'signupTitle',description:'signupDescription',content:<LoginPage/>},
   chat:{title:'chatTitle',description:'chatDescription',content:<ChatExperience/>},
   'video-chat':{title:'chatTitle',description:'chatDescription',content:<VideoChatPage/>},
   exercises:{title:'exercisesTitle',description:'exercisesDescription',content:<ExerciseLibrary/>},
@@ -25,7 +25,7 @@ const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;co
   crisis:{title:'crisisTitle',description:'crisisDescription',content:<CrisisPage/>},
   privacy:{title:'privacyTitle',description:'privacyDescription',content:<PrivacyCenter/>},
   settings:{title:'settingsTitle',description:'settingsDescription',content:<SettingsPage/>},
-  signup:{title:'signupTitle',description:'signupDescription',content:<UserSignup/>},
+  signup:{title:'signupTitle',description:'signupDescription',content:<LoginPage/>},
   'complete-profile':{title:'completeProfileTitle',description:'completeProfileDescription',content:<ProfileDetailsPage mode="complete"/>},
   profile:{title:'profileTitle',description:'profileDescription',content:<ProfileDetailsPage mode="edit"/>},
   'access-code':{title:'accessTitle',description:'accessDescription',content:<AccessCode/>},

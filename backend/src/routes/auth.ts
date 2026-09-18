@@ -66,15 +66,11 @@ authRouter.post('/signup', async (req, res, next) => {
         password: z.string().min(8),
         displayName: z.string().min(2),
         role: z.enum(['USER', 'COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST']).default('USER'),
-<<<<<<< HEAD
-        licenceNumber: z.string().min(3).optional(),
-=======
-        licenceNumber: z.string().default(''),
->>>>>>> 7b7c94b6ceb10cd83cbf00beb0df18926b88969b
+        licenceNumber: z.string().optional().default(''),
       })
       .parse(req.body);
 
-    if (body.role !== 'USER' && !body.licenceNumber) {
+    if (body.role !== 'USER' && !body.licenceNumber?.trim()) {
       return res.status(400).json({ error: 'Licence number is required for professional accounts.' });
     }
 

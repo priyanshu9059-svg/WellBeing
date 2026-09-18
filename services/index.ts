@@ -106,7 +106,6 @@ export type ProfessionalSignup = {
   password: string;
   displayName: string;
   role: 'USER' | 'COUNSELLOR' | 'PSYCHOLOGIST' | 'PSYCHIATRIST';
-<<<<<<< HEAD
   licenceNumber?: string;
 };
 
@@ -129,9 +128,6 @@ export type PatientProfile = {
   email?: string;
   skipped?: boolean;
   updatedAt?: string | null;
-=======
-  licenceNumber: string;
->>>>>>> 7b7c94b6ceb10cd83cbf00beb0df18926b88969b
 };
 
 export type CarePlaceDto = {
