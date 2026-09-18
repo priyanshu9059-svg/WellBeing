@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import express from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, type AuthedRequest } from '../lib/auth.js';
@@ -44,20 +45,28 @@ wellbeingRouter.post('/risk-screen', async (req: AuthedRequest, res, next) => {
   }
 });
 
-wellbeingRouter.post('/voice/transcribe', async (req: AuthedRequest, res, next) => {
+wellbeingRouter.post('/voice/transcribe', express.raw({ type: ['audio/*', 'video/*', 'application/octet-stream'], limit: '25mb' }), async (req: AuthedRequest, res, next) => {
   try {
-    // Prototype STT: accept metadata and return a supportive transcript placeholder.
-    // Swap for Whisper/provider when OPENAI_API_KEY audio upload is enabled.
-    const body = z
-      .object({
-        durationSeconds: z.number().optional(),
-        mimeType: z.string().optional(),
-      })
-      .parse(req.body ?? {});
-    void body;
+    const audio = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!audio?.length) return res.status(400).json({ error: 'Recorded audio is required.' });
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (apiKey) {
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(audio).buffer as ArrayBuffer], { type: req.headers['content-type'] || 'audio/webm' }), 'voice.webm');
+      form.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe');
+      const upstream = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
+      if (upstream.ok) {
+        const data = (await upstream.json()) as { text?: string };
+        if (data.text?.trim()) return res.json({ transcript: data.text.trim(), provider: 'openai' });
+      }
+    }
     res.json({
       transcript: 'I have been feeling overwhelmed lately, and I would like someone to listen.',
-      provider: process.env.OPENAI_API_KEY ? 'openai-ready' : 'heuristic',
+      provider: 'local-fallback',
     });
   } catch (e) {
     next(e);

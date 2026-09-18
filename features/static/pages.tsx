@@ -1,15 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowRight, BookOpenText, Camera, CircleHelp, Leaf, MessageCircle, MoonStar, Phone, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, CircleHelp, Leaf, MessageCircle, Phone, Shield } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { crisisResources } from '@/config/crisis-resources';
 import { features } from '@/config/features';
 import { LanguageSelect, useLanguage } from '@/components/language-provider';
 import { getServices } from '@/services';
 import { isApiEnabled } from '@/lib/api';
-const tools=[{href:'/chat',title:'A conversation',copy:'Type or use your voice in a calm, anonymous support space.',icon:MessageCircle},{href:'/mood',title:'Mood check-in',copy:'Notice patterns without scores, streaks, or judgment.',icon:MoonStar},{href:'/journal',title:'Private journal',copy:'Write what feels difficult, or begin with a reflection prompt.',icon:BookOpenText},{href:'/exercises',title:'Guided exercises',copy:'Try breathing, grounding, self-compassion, or a next step.',icon:Leaf},{href:'/wellbeing',title:'Wellbeing snapshot',copy:'Build a non-diagnostic summary from what you choose to share.',icon:Sparkles},{href:'/safety-plan',title:'Personal safety plan',copy:'Prepare supportive steps, people, places, and resources.',icon:Shield}];
-export function SupportHome(){return <div><div className="support-intro"><Card className="featured-support"><p className="kicker">If talking feels possible</p><h2>Begin with one sentence.</h2><p>You do not need to explain everything. The local support companion will ask one question at a time.</p><Link className="btn btn-primary" href="/chat">Open a conversation <ArrowRight/></Link></Card><Card className="pause-card"><span className="pause-visual">◌</span><div><p className="kicker">If words feel difficult</p><h2>Take a two-minute pause.</h2><Link href="/exercises">Try box breathing →</Link></div></Card></div><section><div className="section-heading"><p className="kicker">Choose what fits this moment</p><h2>Support tools</h2></div><div className="tool-grid">{tools.map(t=><Link href={t.href} key={t.href} className="tool-card"><span className="soft-icon"><t.icon/></span><h3>{t.title}</h3><p>{t.copy}</p><b>Open tool <ArrowRight/></b></Link>)}</div></section></div>}
+const tools=[{href:'/wellbeing',title:'Wellbeing conversation',copy:'Talk by voice, type a message, or open a camera-based avatar call.',icon:MessageCircle},{href:'/exercises',title:'Guided exercises',copy:'Try breathing, grounding, self-compassion, or a next step.',icon:Leaf},{href:'/safety-plan',title:'Personal safety plan',copy:'Prepare supportive steps, people, places, and resources.',icon:Shield}];
+export function SupportHome(){return <div><div className="support-intro"><Card className="featured-support"><p className="kicker">If talking feels possible</p><h2>Begin with your voice.</h2><p>You do not need to explain everything. The support companion can start as an audio conversation and move at your pace.</p><Link className="btn btn-primary" href="/wellbeing">Open wellbeing conversation <ArrowRight/></Link></Card><Card className="pause-card"><span className="pause-visual">◌</span><div><p className="kicker">If words feel difficult</p><h2>Take a two-minute pause.</h2><Link href="/exercises">Try box breathing →</Link></div></Card></div><section><div className="section-heading"><p className="kicker">Choose what fits this moment</p><h2>Support tools</h2></div><div className="tool-grid">{tools.map(t=><Link href={t.href} key={t.href} className="tool-card"><span className="soft-icon"><t.icon/></span><h3>{t.title}</h3><p>{t.copy}</p><b>Open tool <ArrowRight/></b></Link>)}</div></section></div>}
 export function CrisisPage(){
   const [note,setNote]=useState('');
   async function contactTrusted(){
@@ -33,3 +33,6 @@ export function FaqPage(){const qs=[['Is this therapy?','No. It is a wellbeing s
 export function OfflinePage(){return <div className="narrow-page"><Card className="empty-state large"><span>☁</span><h2>You appear to be offline</h2><p>Locally saved tools may still be available. Reconnect to load pages that have not been visited before.</p><Link href="/support" className="btn btn-primary">Try support home</Link></Card></div>}
 export function NotFound(){return <div className="narrow-page"><Card className="empty-state large"><span>◌</span><h2>This page is not here</h2><p>Nothing went wrong with your session. Choose a support tool to continue.</p><Link href="/support" className="btn btn-primary">Return to support</Link></Card></div>}
 export function FeatureFlagsNote(){return <>{features.voice&&<Camera className="sr-only"/>}</>}
+
+
+

@@ -119,6 +119,7 @@ model ChatMessage {
   conversationId String
   role           String
   text           String
+  metadataJson   String       @default("{}")
   feedback       String?
   flagged        Boolean      @default(false)
   createdAt      DateTime     @default(now())

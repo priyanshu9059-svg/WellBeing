@@ -2,20 +2,16 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, LogIn, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { PwaRegister } from '@/components/pwa-register';
 import { brand } from '@/config/brand';
 import { LanguageSelect, useLanguage } from '@/components/language-provider';
 
-const steps = [
-  { title: 'How would you like to begin?', options: ['Type a message', 'Talk using my voice', 'I’m not sure yet'] },
-  { title: 'What feels closest to what you’re experiencing?', options: ['I feel afraid or unsafe', 'I feel overwhelmed', 'I feel lonely', 'Something difficult happened', 'I’m having distressing thoughts', 'I mainly need someone to listen', 'I’m not sure'] },
-  { title: 'Choose what feels private enough', options: ['Continue anonymously', 'Sign in later', 'Enter organization or campus code'] },
-];
-
 export default function Home() {
   const [step, setStep] = useState(-1);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const copy = landingCopy[language];
+  const steps = copy.steps;
   return (
     <main>
       <PwaRegister />
@@ -23,8 +19,9 @@ export default function Home() {
         <nav className="landing-nav" aria-label="Primary navigation">
           <Link href="/" className="brand"><span aria-hidden="true">✦</span> {brand.name}</Link>
           <div className="nav-actions">
+            <Link href="/crisis" className="sos-top-link"><span aria-hidden="true">!</span> SOS</Link>
             <LanguageSelect id="language" />
-            <Link href="/crisis" className="urgent-link">{t('urgentHelp')}</Link>
+            <Link className="get-started-link" href="/login"><LogIn size={16}/> {copy.getStarted}</Link>
           </div>
         </nav>
         <div className="sky-orb orb-one" aria-hidden="true" /><div className="sky-orb orb-two" aria-hidden="true" />
@@ -32,14 +29,20 @@ export default function Home() {
           <p className="eyebrow">{t('heroEyebrow')}</p>
           <h1 id="hero-title">{t('heroTitle')}</h1>
           <p className="hero-copy">{t('heroCopy')}</p>
-          <div className="hero-actions"><button className="primary-button" onClick={() => setStep(0)}>{t('startTalking')} <span aria-hidden="true">→</span></button><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
+          <div className="hero-actions"><Link className="primary-button" href="/chat"><MessageCircle size={18}/> {t('startTalking')} <span aria-hidden="true">→</span></Link><Link className="secondary-button" href="/login"><LogIn size={18}/> {copy.accessAccount}</Link><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
           <p className="privacy-note"><span aria-hidden="true">◌</span> {t('privacyNote')}</p>
         </div>
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
         {step >= 0 && <div className="modal-backdrop" role="presentation"><section className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+<<<<<<< HEAD
           <button className="close-button" onClick={() => setStep(-1)} aria-label="Close onboarding">×</button><p className="step-label">Step {step + 1} of 3 · optional</p><h2 id="onboarding-title">{steps[step].title}</h2>
           <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option} className="option-button" href={option.includes('organization') ? '/access-code' : option.includes('Sign in') ? '/signup' : '/chat'}>{option}<span>→</span></Link> : <button key={option} className="option-button" onClick={() => setStep(step + 1)}>{option}<span>→</span></button>)}</div>
           <p className="modal-note">You can skip this and change your choices at any time.</p>
+=======
+          <button className="close-button" onClick={() => setStep(-1)} aria-label={copy.close}>×</button><p className="step-label">{copy.stepLabel(step + 1)}</p><h2 id="onboarding-title">{steps[step].title}</h2>
+          <div className="option-list">{steps[step].options.map((option) => step === 2 ? <Link key={option.label} className="option-button" href={option.href}>{option.label}<span>→</span></Link> : <button key={option.label} className="option-button" onClick={() => setStep(step + 1)}>{option.label}<span>→</span></button>)}</div>
+          <p className="modal-note">{copy.modalNote}</p>
+>>>>>>> 7b7c94b6ceb10cd83cbf00beb0df18926b88969b
         </section></div>}
       </section>
       <section className="landing-content" aria-labelledby="how-title">
@@ -58,9 +61,48 @@ export default function Home() {
       </div></section>
       <section className="landing-trust"><div className="trust-visual" aria-hidden="true"><span>✦</span><i/><b/></div><div><p className="eyebrow">{t('clarityTrust')}</p><h2>{t('supportiveNotClinical')}</h2><p>{t('trustCopy')}</p><div className="landing-link-row"><Link href="/trust">{t('readTrust')} <ArrowRight/></Link><Link href="/privacy">{t('visitPrivacy')} <ArrowRight/></Link></div></div></section>
       <section className="landing-faq"><div><p className="eyebrow">{t('questionsWelcome')}</p><h2>{t('plainAnswers')}</h2></div><div><details open><summary>{t('nameQuestion')}</summary><p>{t('nameAnswer')}</p></details><details><summary>{t('therapyQuestion')}</summary><p>{t('therapyAnswer')}</p></details><details><summary>{t('emergencyQuestion')}</summary><p>{t('emergencyAnswer')}</p></details><Link className="text-link" href="/faq">{t('seeFaq')} →</Link></div></section>
-      <section className="landing-cta"><span><Sparkles/></span><p className="eyebrow">{t('smallBeginning')}</p><h2>{t('oneSentence')}</h2><p>{t('oneSentenceCopy')}</p><button className="primary-button" onClick={()=>{setStep(0);window.scrollTo({top:0,behavior:'smooth'})}}>{t('startTalking')} <ArrowRight/></button></section>
+      <section className="landing-cta"><span><Sparkles/></span><p className="eyebrow">{t('smallBeginning')}</p><h2>{t('oneSentence')}</h2><p>{t('oneSentenceCopy')}</p><Link className="primary-button" href="/chat">{t('startTalking')} <ArrowRight/></Link></section>
       <footer className="landing-footer"><Link href="/" className="brand"><span>✦</span>{brand.name}</Link><p>{t('footerCopy')}</p><nav><Link href="/about">{t('about')}</Link><Link href="/privacy">{t('privacy')}</Link><Link href="/trust">{t('limitations')}</Link><Link href="/faq">{t('faq')}</Link></nav></footer>
       <Link href="/crisis" className="urgent-fab"><span>!</span>{t('urgentHelp')}</Link>
     </main>
   );
 }
+
+const landingCopy = {
+  English: {
+    getStarted: 'Get Started',
+    accessAccount: 'Sign up / log in',
+    close: 'Close onboarding',
+    modalNote: 'You can skip this and change your choices at any time.',
+    stepLabel: (step: number) => `Step ${step} of 3 · optional`,
+    steps: [
+      { title: 'How would you like to begin?', options: [{ label: 'Type a message' }, { label: 'Talk using my voice' }, { label: 'I’m not sure yet' }] },
+      { title: 'What feels closest to what you’re experiencing?', options: [{ label: 'I feel afraid or unsafe' }, { label: 'I feel overwhelmed' }, { label: 'I feel lonely' }, { label: 'Something difficult happened' }, { label: 'I’m having distressing thoughts' }, { label: 'I mainly need someone to listen' }, { label: 'I’m not sure' }] },
+      { title: 'Choose what feels private enough', options: [{ label: 'Continue anonymously', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Enter organization or campus code', href: '/access-code' }] },
+    ],
+  },
+  Hindi: {
+    getStarted: 'शुरू करें',
+    accessAccount: 'Sign up / log in',
+    close: 'ऑनबोर्डिंग बंद करें',
+    modalNote: 'आप इसे छोड़ सकते हैं और अपनी पसंद कभी भी बदल सकते हैं।',
+    stepLabel: (step: number) => `चरण ${step} / 3 · वैकल्पिक`,
+    steps: [
+      { title: 'आप कैसे शुरू करना चाहेंगे?', options: [{ label: 'Message type करें' }, { label: 'Voice से बात करें' }, { label: 'अभी पक्का नहीं' }] },
+      { title: 'आपके अनुभव के सबसे करीब क्या है?', options: [{ label: 'मुझे डर या unsafe महसूस हो रहा है' }, { label: 'मैं overwhelmed महसूस कर रहा/रही हूं' }, { label: 'मैं अकेला/अकेली महसूस कर रहा/रही हूं' }, { label: 'कुछ मुश्किल हुआ है' }, { label: 'Distressing thoughts आ रहे हैं' }, { label: 'मुझे बस कोई सुनने वाला चाहिए' }, { label: 'अभी पक्का नहीं' }] },
+      { title: 'जो private लगे वह चुनें', options: [{ label: 'Anonymous जारी रखें', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Organization या campus code डालें', href: '/access-code' }] },
+    ],
+  },
+  Hinglish: {
+    getStarted: 'Get Started',
+    accessAccount: 'Sign up / log in',
+    close: 'Onboarding close karo',
+    modalNote: 'Ye skip kar sakte ho aur choices kabhi bhi change kar sakte ho.',
+    stepLabel: (step: number) => `Step ${step} of 3 · optional`,
+    steps: [
+      { title: 'Kaise begin karna chahoge?', options: [{ label: 'Message type karo' }, { label: 'Voice se baat karo' }, { label: 'Abhi sure nahi' }] },
+      { title: 'Jo feel ho raha hai uske closest kya hai?', options: [{ label: 'Mujhe afraid ya unsafe feel ho raha hai' }, { label: 'Main overwhelmed feel kar raha/rahi hoon' }, { label: 'Main lonely feel kar raha/rahi hoon' }, { label: 'Kuch difficult hua hai' }, { label: 'Distressing thoughts aa rahe hain' }, { label: 'Mujhe mainly koi sunne wala chahiye' }, { label: 'Abhi sure nahi' }] },
+      { title: 'Jo private enough lage woh choose karo', options: [{ label: 'Anonymously continue karo', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Organization ya campus code enter karo', href: '/access-code' }] },
+    ],
+  },
+};
