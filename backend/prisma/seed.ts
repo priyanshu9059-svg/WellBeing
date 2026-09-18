@@ -27,12 +27,24 @@ async function main() {
 
   const counsellor = await prisma.user.create({
     data: {
-      email: 'demo@wellbeing.care',
+      email: 'counsellor@wellbeing.care',
       passwordHash,
       displayName: 'Dr. Aditi Sharma',
       role: Role.COUNSELLOR,
       anonymous: false,
       licenceNumber: 'MH-CARE-001',
+    },
+  });
+
+  // Keep legacy professional email working too
+  await prisma.user.create({
+    data: {
+      email: 'demo@wellbeing.care',
+      passwordHash,
+      displayName: 'Dr. Aditi Sharma',
+      role: Role.COUNSELLOR,
+      anonymous: false,
+      licenceNumber: 'MH-CARE-001B',
     },
   });
 
@@ -145,9 +157,11 @@ async function main() {
 
   const patient = await prisma.user.create({
     data: {
-      displayName: 'Anonymous 2041',
-      anonymous: true,
-      anonymousKey: 'demo-patient-2041',
+      email: 'user@wellbeing.care',
+      passwordHash,
+      displayName: 'Demo User',
+      role: Role.USER,
+      anonymous: false,
       location: 'Indiranagar, Bengaluru',
       abhaId: '12-3456-7890-1234',
       phone: '+91 98765 43210',
@@ -157,12 +171,13 @@ async function main() {
       profileUpdatedAt: new Date(),
       contactConsent: {
         create: {
-          anonymous: true,
+          anonymous: false,
           allowContact: true,
           allowWellbeingSummary: true,
           preferredMethod: 'Mobile',
           preferredTime: 'Morning',
           mobile: '+91 98765 43210',
+          email: 'user@wellbeing.care',
         },
       },
       moodEntries: {
@@ -209,7 +224,9 @@ async function main() {
   });
 
   console.log('Seed complete.');
-  console.log('Professional login: demo@wellbeing.care / prototype');
+  console.log('Demo user:        user@wellbeing.care / prototype');
+  console.log('Demo counsellor:  counsellor@wellbeing.care / prototype');
+  console.log('Legacy counsellor: demo@wellbeing.care / prototype');
   console.log('Org codes: CAMPUS-DEMO, TEAM-CARE');
 }
 

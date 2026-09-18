@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, LockKeyhole, Mail, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
 import { getServices } from '@/services';
-import { createLocalUser, signInLocalUser } from '@/lib/local-user-auth';
+import { createLocalUser, DEMO_ACCOUNTS, ensureLocalDemoAccounts, signInLocalUser } from '@/lib/local-user-auth';
 
 function apiConfigured() {
   return Boolean((process.env.NEXT_PUBLIC_API_BASE_URL || '').trim());
@@ -56,14 +56,26 @@ const copy = {
 export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | 'signup' }) {
   const { language } = useLanguage();
   const [mode, setMode] = useState<'login' | 'signup'>(defaultMode);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(defaultMode === 'login' ? DEMO_ACCOUNTS.user.email : '');
+  const [password, setPassword] = useState(defaultMode === 'login' ? DEMO_ACCOUNTS.user.password : '');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const text = copy[language];
   const index = mode === 'login' ? 0 : 1;
+
+  useEffect(() => {
+    void ensureLocalDemoAccounts();
+  }, []);
+
+  function fillDemo(kind: 'user' | 'counsellor') {
+    const account = DEMO_ACCOUNTS[kind];
+    setMode('login');
+    setEmail(account.email);
+    setPassword(account.password);
+    setError('');
+  }
 
   return (
     <div className="login-page">
@@ -128,9 +140,21 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
             try {
               const useApi = apiConfigured();
               if (mode === 'login') {
-                if (useApi) await getServices().authentication.signIn(email.trim(), password);
-                else await signInLocalUser(email.trim(), password);
-                router.push('/support');
+                if (useApi) {
+                  const result = await getServices().authentication.signIn(email.trim(), password);
+                  if (['COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST', 'ORG_ADMIN'].includes(result.user.role)) {
+                    router.push('/professional');
+                  } else {
+                    router.push('/support');
+                  }
+                } else {
+                  await signInLocalUser(email.trim(), password);
+                  if (email.trim().toLowerCase() === DEMO_ACCOUNTS.counsellor.email) {
+                    router.push('/professional');
+                  } else {
+                    router.push('/support');
+                  }
+                }
               } else if (useApi) {
                 const result = await getServices().authentication.signUp({
                   email: email.trim(),
@@ -157,6 +181,27 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
           {busy ? 'Please wait…' : text.submit[index]} <ArrowRight />
         </Button>
         {error && <p className="error-text">{error}</p>}
+        <div className="demo-account-box">
+          <p className="kicker">Demo accounts</p>
+          <p className="fine-print" style={{ marginBottom: 10 }}>
+            Password for both: <b>prototype</b>
+          </p>
+          <div className="demo-account-cards">
+            <button type="button" className="demo-account-card" onClick={() => fillDemo('user')}>
+              <b>User</b>
+              <span>{DEMO_ACCOUNTS.user.email}</span>
+              <small>Fills login · opens support tools</small>
+            </button>
+            <button type="button" className="demo-account-card" onClick={() => fillDemo('counsellor')}>
+              <b>Counsellor</b>
+              <span>{DEMO_ACCOUNTS.counsellor.email}</span>
+              <small>Fills login · use Professional portal</small>
+            </button>
+          </div>
+          <Link className="text-link" href="/professional" style={{ display: 'inline-block', marginTop: 10 }}>
+            Open professional portal →
+          </Link>
+        </div>
         <Link className="text-link" href="/crisis">
           Need urgent help without logging in?
         </Link>

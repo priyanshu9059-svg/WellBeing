@@ -198,7 +198,7 @@ function ProfessionalAccess({
   onEnter: (user?: AuthUser | null) => void | Promise<void>;
 }) {
   const services = getServices();
-  const [email, setEmail] = useState(mode === 'login' ? 'demo@wellbeing.care' : '');
+  const [email, setEmail] = useState(mode === 'login' ? 'counsellor@wellbeing.care' : '');
   const [password, setPassword] = useState(mode === 'login' ? 'prototype' : '');
   const [displayName, setDisplayName] = useState('');
   const [licenceNumber, setLicenceNumber] = useState('');
@@ -208,7 +208,7 @@ function ProfessionalAccess({
 
   useEffect(() => {
     if (mode === 'login') {
-      setEmail((e) => e || 'demo@wellbeing.care');
+      setEmail((e) => e || 'counsellor@wellbeing.care');
       setPassword((p) => p || 'prototype');
     } else {
       setEmail('');
@@ -308,12 +308,39 @@ function ProfessionalAccess({
         <Button className="auth-submit" onClick={submit} disabled={busy}>
           {busy ? 'Please wait…' : mode === 'login' ? (isApiEnabled() ? 'Sign in' : 'Open demo dashboard') : isApiEnabled() ? 'Create account' : 'Create prototype account'} <ChevronRight />
         </Button>
+        <div className="demo-account-box">
+          <p className="kicker">Demo accounts</p>
+          <p className="fine-print" style={{ marginBottom: 10 }}>
+            Password for both: <b>prototype</b>
+          </p>
+          <div className="demo-account-cards">
+            <button
+              type="button"
+              className="demo-account-card"
+              onClick={() => {
+                setMode('login');
+                setEmail('counsellor@wellbeing.care');
+                setPassword('prototype');
+                setError(null);
+              }}
+            >
+              <b>Counsellor</b>
+              <span>counsellor@wellbeing.care</span>
+              <small>Fills this form for professional login</small>
+            </button>
+            <a className="demo-account-card" href="/login">
+              <b>User</b>
+              <span>user@wellbeing.care</span>
+              <small>Open user login / signup page</small>
+            </a>
+          </div>
+        </div>
         <p className="auth-note">
           <LockKeyhole /> {isApiEnabled()
             ? 'Connected to the support API. Use verified professional credentials.'
             : 'This is a simulated access flow. Production requires verified credentials, secure authentication, audit logs, and role-based permissions.'}
         </p>
-        <Link className="text-link" href="/login">USER LOG IN</Link>
+        <Link className="text-link" href="/login">User log in / sign up</Link>
       </Card>
     </div>
   );

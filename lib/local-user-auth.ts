@@ -98,3 +98,35 @@ export function signOutLocalUser() {
   localStorage.removeItem(CURRENT_USER_KEY);
   window.dispatchEvent(new CustomEvent('wellbeing-support:auth-changed'));
 }
+
+/** Ensures offline demo accounts exist (user + counsellor identity for local login demos). */
+export async function ensureLocalDemoAccounts() {
+  if (typeof window === 'undefined') return;
+  const demos = [
+    { displayName: 'Demo User', identifier: 'user@wellbeing.care', password: 'prototype' },
+    { displayName: 'Dr. Aditi Sharma', identifier: 'counsellor@wellbeing.care', password: 'prototype' },
+  ] as const;
+
+  const accounts = loadAccounts();
+  let changed = false;
+  for (const demo of demos) {
+    const identifier = normalizeIdentifier(demo.identifier);
+    if (accounts.some((a) => a.identifier === identifier)) continue;
+    const salt = crypto.randomUUID();
+    accounts.push({
+      id: crypto.randomUUID(),
+      displayName: demo.displayName,
+      identifier,
+      passwordHash: await hashPassword(demo.password, salt),
+      salt,
+      createdAt: new Date().toISOString(),
+    });
+    changed = true;
+  }
+  if (changed) localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+export const DEMO_ACCOUNTS = {
+  user: { email: 'user@wellbeing.care', password: 'prototype', label: 'Demo user' },
+  counsellor: { email: 'counsellor@wellbeing.care', password: 'prototype', label: 'Demo counsellor' },
+} as const;

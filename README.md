@@ -38,8 +38,12 @@ Then run the frontend with `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000`.
 
 | Role | Value |
 |---|---|
-| Professional login | `demo@wellbeing.care` / `prototype` |
+| User | `user@wellbeing.care` / `prototype` |
+| Counsellor | `counsellor@wellbeing.care` / `prototype` |
+| Counsellor (legacy) | `demo@wellbeing.care` / `prototype` |
 | Org codes | `CAMPUS-DEMO`, `TEAM-CARE` |
+
+User login: `/login` · Counsellor login: `/professional`
 
 Optional: set `OPENAI_API_KEY` in `backend/.env` for live chat replies (otherwise supportive heuristic replies are used).
 
