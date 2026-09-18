@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, LogIn, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpenText, BriefcaseMedical, Languages, Leaf, LockKeyhole, MapPinned, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { PwaRegister } from '@/components/pwa-register';
 import { brand } from '@/config/brand';
 import { LanguageSelect, useLanguage } from '@/components/language-provider';
@@ -21,7 +21,7 @@ export default function Home() {
           <div className="nav-actions">
             <Link href="/crisis" className="sos-top-link"><span aria-hidden="true">!</span> SOS</Link>
             <LanguageSelect id="language" />
-            <Link className="get-started-link" href="/login"><LogIn size={16}/> {copy.getStarted}</Link>
+            <Link className="get-started-link" href="/support"><ArrowRight size={16}/> {copy.getStarted}</Link>
           </div>
         </nav>
         <div className="sky-orb orb-one" aria-hidden="true" /><div className="sky-orb orb-two" aria-hidden="true" />
@@ -29,7 +29,7 @@ export default function Home() {
           <p className="eyebrow">{t('heroEyebrow')}</p>
           <h1 id="hero-title">{t('heroTitle')}</h1>
           <p className="hero-copy">{t('heroCopy')}</p>
-          <div className="hero-actions"><Link className="primary-button" href="/chat"><MessageCircle size={18}/> {t('startTalking')} <span aria-hidden="true">→</span></Link><Link className="secondary-button" href="/login"><LogIn size={18}/> {copy.accessAccount}</Link><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
+          <div className="hero-actions"><Link className="primary-button" href="/chat"><MessageCircle size={18}/> {t('startTalking')} <span aria-hidden="true">→</span></Link><Link className="secondary-button" href="/support"><ShieldCheck size={18}/> {copy.accessSupport}</Link><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
           <p className="privacy-note"><span aria-hidden="true">◌</span> {t('privacyNote')}</p>
         </div>
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
@@ -65,38 +65,38 @@ export default function Home() {
 const landingCopy = {
   English: {
     getStarted: 'Get Started',
-    accessAccount: 'Sign up / log in',
+    accessSupport: 'Open support tools',
     close: 'Close onboarding',
     modalNote: 'You can skip this and change your choices at any time.',
     stepLabel: (step: number) => `Step ${step} of 3 · optional`,
     steps: [
       { title: 'How would you like to begin?', options: [{ label: 'Type a message' }, { label: 'Talk using my voice' }, { label: 'I’m not sure yet' }] },
       { title: 'What feels closest to what you’re experiencing?', options: [{ label: 'I feel afraid or unsafe' }, { label: 'I feel overwhelmed' }, { label: 'I feel lonely' }, { label: 'Something difficult happened' }, { label: 'I’m having distressing thoughts' }, { label: 'I mainly need someone to listen' }, { label: 'I’m not sure' }] },
-      { title: 'Choose what feels private enough', options: [{ label: 'Continue anonymously', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Enter organization or campus code', href: '/access-code' }] },
+      { title: 'Choose what feels private enough', options: [{ label: 'Continue anonymously', href: '/chat' }, { label: 'Open support tools', href: '/support' }, { label: 'Enter organization or campus code', href: '/access-code' }] },
     ],
   },
   Hindi: {
     getStarted: 'शुरू करें',
-    accessAccount: 'Sign up / log in',
+    accessSupport: 'Support tools खोलें',
     close: 'ऑनबोर्डिंग बंद करें',
     modalNote: 'आप इसे छोड़ सकते हैं और अपनी पसंद कभी भी बदल सकते हैं।',
     stepLabel: (step: number) => `चरण ${step} / 3 · वैकल्पिक`,
     steps: [
       { title: 'आप कैसे शुरू करना चाहेंगे?', options: [{ label: 'Message type करें' }, { label: 'Voice से बात करें' }, { label: 'अभी पक्का नहीं' }] },
       { title: 'आपके अनुभव के सबसे करीब क्या है?', options: [{ label: 'मुझे डर या unsafe महसूस हो रहा है' }, { label: 'मैं overwhelmed महसूस कर रहा/रही हूं' }, { label: 'मैं अकेला/अकेली महसूस कर रहा/रही हूं' }, { label: 'कुछ मुश्किल हुआ है' }, { label: 'Distressing thoughts आ रहे हैं' }, { label: 'मुझे बस कोई सुनने वाला चाहिए' }, { label: 'अभी पक्का नहीं' }] },
-      { title: 'जो private लगे वह चुनें', options: [{ label: 'Anonymous जारी रखें', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Organization या campus code डालें', href: '/access-code' }] },
+      { title: 'जो private लगे वह चुनें', options: [{ label: 'Anonymous जारी रखें', href: '/chat' }, { label: 'Support tools खोलें', href: '/support' }, { label: 'Organization या campus code डालें', href: '/access-code' }] },
     ],
   },
   Hinglish: {
     getStarted: 'Get Started',
-    accessAccount: 'Sign up / log in',
+    accessSupport: 'Support tools kholo',
     close: 'Onboarding close karo',
     modalNote: 'Ye skip kar sakte ho aur choices kabhi bhi change kar sakte ho.',
     stepLabel: (step: number) => `Step ${step} of 3 · optional`,
     steps: [
       { title: 'Kaise begin karna chahoge?', options: [{ label: 'Message type karo' }, { label: 'Voice se baat karo' }, { label: 'Abhi sure nahi' }] },
       { title: 'Jo feel ho raha hai uske closest kya hai?', options: [{ label: 'Mujhe afraid ya unsafe feel ho raha hai' }, { label: 'Main overwhelmed feel kar raha/rahi hoon' }, { label: 'Main lonely feel kar raha/rahi hoon' }, { label: 'Kuch difficult hua hai' }, { label: 'Distressing thoughts aa rahe hain' }, { label: 'Mujhe mainly koi sunne wala chahiye' }, { label: 'Abhi sure nahi' }] },
-      { title: 'Jo private enough lage woh choose karo', options: [{ label: 'Anonymously continue karo', href: '/chat' }, { label: 'Sign up / log in', href: '/login' }, { label: 'Organization ya campus code enter karo', href: '/access-code' }] },
+      { title: 'Jo private enough lage woh choose karo', options: [{ label: 'Anonymously continue karo', href: '/chat' }, { label: 'Support tools kholo', href: '/support' }, { label: 'Organization ya campus code enter karo', href: '/access-code' }] },
     ],
   },
 };

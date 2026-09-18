@@ -86,12 +86,16 @@ function mapDashboard(data: ProfessionalDashboard) {
 
 export function ProfessionalPortal() {
   const services = getServices();
-  const [signedIn, setSignedIn] = useState(false);
+  const [signedIn, setSignedIn] = useState(true);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [role, setRole] = useState<Role>('Counsellor');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<ReturnType<typeof mapDashboard> | null>(null);
   const [usingDemo, setUsingDemo] = useState(true);
+
+  useEffect(() => {
+    if (!dashboard) void loadDashboard(role, user?.displayName);
+  }, [dashboard, role, user?.displayName]);
 
   async function loadDashboard(fallbackRole: Role, fallbackName?: string | null) {
     if (!isApiEnabled()) {
@@ -136,7 +140,7 @@ export function ProfessionalPortal() {
     } catch {
       /* ignore */
     }
-    setSignedIn(false);
+    setSignedIn(true);
     setUser(null);
     setDashboard(null);
     setUsingDemo(true);
