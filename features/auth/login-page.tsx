@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
 import { getServices } from '@/services';
-import { isApiEnabled } from '@/lib/api';
+
+function apiConfigured() {
+  return Boolean((process.env.NEXT_PUBLIC_API_BASE_URL || '').trim());
+}
 
 const copy = {
   English: {
@@ -112,7 +115,7 @@ export function LoginPage() {
           disabled={busy}
           onClick={async () => {
             setError('');
-            if (!isApiEnabled()) {
+            if (!apiConfigured()) {
               setError('The account service is not configured. Start the backend and try again.');
               return;
             }
