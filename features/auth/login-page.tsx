@@ -7,8 +7,7 @@ import { ArrowRight, LockKeyhole, Mail, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
-import { getServices } from '@/services';
-import { isApiEnabled } from '@/lib/api';
+import { createLocalUser, signInLocalUser } from '@/lib/local-user-auth';
 
 const copy = {
   English: {
@@ -49,7 +48,7 @@ const copy = {
   },
 };
 
-export function LoginPage() {
+export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | 'signup' }) {
   const { language } = useLanguage();
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [email, setEmail] = useState('');

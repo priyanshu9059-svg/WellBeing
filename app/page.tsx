@@ -29,7 +29,7 @@ export default function Home() {
           <p className="eyebrow">{t('heroEyebrow')}</p>
           <h1 id="hero-title">{t('heroTitle')}</h1>
           <p className="hero-copy">{t('heroCopy')}</p>
-          <div className="hero-actions"><Link className="primary-button" href="/chat"><MessageCircle size={18}/> {t('startTalking')} <span aria-hidden="true">→</span></Link><Link className="secondary-button" href="/support"><ShieldCheck size={18}/> {copy.accessSupport}</Link><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
+          <div className="hero-actions"><Link className="primary-button" href="/chat"><MessageCircle size={18}/> {t('startTalking')} <span aria-hidden="true">→</span></Link><Link className="secondary-button" href="/login"><ShieldCheck size={18}/> {copy.accessSupport}</Link><Link href="/support" className="text-link">{t('exploreTools')}</Link></div>
           <p className="privacy-note"><span aria-hidden="true">◌</span> {t('privacyNote')}</p>
         </div>
         <div className="landscape" aria-hidden="true"><i /><b /><span /></div>
@@ -65,7 +65,7 @@ export default function Home() {
 const landingCopy = {
   English: {
     getStarted: 'Get Started',
-    accessSupport: 'Open support tools',
+    accessSupport: 'Log in / Sign up',
     close: 'Close onboarding',
     modalNote: 'You can skip this and change your choices at any time.',
     stepLabel: (step: number) => `Step ${step} of 3 · optional`,
@@ -77,7 +77,7 @@ const landingCopy = {
   },
   Hindi: {
     getStarted: 'शुरू करें',
-    accessSupport: 'Support tools खोलें',
+    accessSupport: 'Log in / Sign up',
     close: 'ऑनबोर्डिंग बंद करें',
     modalNote: 'आप इसे छोड़ सकते हैं और अपनी पसंद कभी भी बदल सकते हैं।',
     stepLabel: (step: number) => `चरण ${step} / 3 · वैकल्पिक`,
@@ -89,7 +89,7 @@ const landingCopy = {
   },
   Hinglish: {
     getStarted: 'Get Started',
-    accessSupport: 'Support tools kholo',
+    accessSupport: 'Log in / Sign up',
     close: 'Onboarding close karo',
     modalNote: 'Ye skip kar sakte ho aur choices kabhi bhi change kar sakte ho.',
     stepLabel: (step: number) => `Step ${step} of 3 · optional`,
