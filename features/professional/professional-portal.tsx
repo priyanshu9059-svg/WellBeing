@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Activity, Bell, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, FileText, Headphones, LockKeyhole, LogOut, MessageSquareText, Phone, Search, ShieldCheck, UsersRound, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -263,6 +264,7 @@ function ProfessionalAccess({
         <p className="portal-disclaimer">Prototype only · No real patient or clinical data</p>
       </section>
       <Card className="auth-card">
+        <Link className="professional-header-link auth-switch" href="/login">USER LOGIN</Link>
         <div className="auth-tabs">
           <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Log in</button>
           <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Create account</button>

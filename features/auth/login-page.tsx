@@ -198,9 +198,6 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
               <small>Fills login · use Professional portal</small>
             </button>
           </div>
-          <Link className="text-link" href="/professional" style={{ display: 'inline-block', marginTop: 10 }}>
-            Open professional portal →
-          </Link>
         </div>
         <Link className="text-link" href="/crisis">
           Need urgent help without logging in?
