@@ -18,6 +18,9 @@ type Patient = {
   last: string;
   consent: string;
   mood: number[];
+  emotion?: string | null;
+  riskLevel?: string | null;
+  confidence?: number | null;
   profile?: {
     location: string;
     abhaId: string;
@@ -662,6 +665,14 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
         <div>
           <b>Current care signal</b>
           <p>{patient.signal}. Review the conversation summary and use clinical judgment.</p>
+          {(patient.emotion || patient.riskLevel) && (
+            <p className="aria-signal-meta">
+              {patient.emotion ? `Emotion: ${patient.emotion}` : null}
+              {patient.emotion && patient.riskLevel ? ' · ' : null}
+              {patient.riskLevel ? `Chat risk: ${patient.riskLevel}` : null}
+              {patient.confidence != null ? ` · confidence ${(patient.confidence * 100).toFixed(0)}%` : null}
+            </p>
+          )}
         </div>
       </div>
       <div className="patient-profile-block">

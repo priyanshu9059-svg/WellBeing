@@ -37,6 +37,11 @@ a { color:inherit; } button:disabled { cursor:not-allowed;opacity:.55; }.btn { d
 .media-tab.voice svg { color:#087f78; }.media-tab.video svg { color:#c65e4e; }
 .media-tab:hover,.media-tab.active { color:var(--tab-color);border-color:var(--tab-color);background:color-mix(in srgb,var(--tab-color) 10%,#fff);box-shadow:0 8px 20px color-mix(in srgb,var(--tab-color) 16%,transparent); }
 .media-tab.active small { color:color-mix(in srgb,var(--tab-color) 72%,#4b575a); }
+.aria-meta { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
+.aria-chip { display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.02em;background:#f3f1ef;color:#5c6670;border:1px solid #e4e1dc;text-transform:capitalize; }
+.aria-chip.risk-moderate,.aria-chip.risk-high { color:#7a4d2c;background:#f8efe6;border-color:#e8d3bc; }
+.aria-chip.risk-crisis { color:#7a3038;background:#fceeed;border-color:#e8b8bc; }
+.aria-signal-meta { margin-top:8px;color:#5f6b74;font-size:13px; }
 .auth-gate-main { display:grid;place-items:center;min-height:70vh; }
 .auth-gate { width:min(520px,100%);margin:auto; }.auth-gate .card { padding:clamp(28px,5vw,48px);text-align:center; }.auth-gate-icon { display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border-radius:18px;color:#fff;background:#596281; }.auth-gate-icon svg { width:28px; }.auth-gate h2 { margin:8px 0 10px;font-family:var(--font-serif),serif;font-size:36px;font-weight:560; }.auth-gate p:not(.kicker) { color:#68757b;line-height:1.6; }.auth-gate .btn { display:inline-flex;margin-top:12px; }.auth-gate small { display:block;margin-top:18px;color:#859095;font-size:11px; }
 .video-chat-page { max-width:980px;margin:0 auto; }

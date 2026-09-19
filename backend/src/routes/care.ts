@@ -155,6 +155,17 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
         contactConsent: true,
         moodEntries: { orderBy: { date: 'desc' }, take: 5 },
         wellbeingSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
+        conversations: {
+          orderBy: { updatedAt: 'desc' },
+          take: 1,
+          include: {
+            messages: {
+              where: { role: 'assistant' },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
       },
       orderBy: { updatedAt: 'desc' },
       take: 40,
@@ -163,19 +174,70 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
     const patients = patientUsers.map((user) => {
       const moods = user.moodEntries.map((m) => Math.round((m.mood / 5) * 100));
       const snap = user.wellbeingSnapshots[0];
-      const score = snap?.confidence ?? (moods[0] ?? 40);
+      const latestAssistant = user.conversations[0]?.messages[0];
+      let chatMeta: {
+        emotion?: string;
+        riskLevel?: string;
+        confidence?: number;
+        source?: string;
+      } = {};
+      if (latestAssistant?.metadataJson) {
+        try {
+          chatMeta = JSON.parse(latestAssistant.metadataJson) as typeof chatMeta;
+        } catch {
+          chatMeta = {};
+        }
+      }
+
+      const riskLevel = chatMeta.riskLevel as 'low' | 'moderate' | 'high' | 'crisis' | undefined;
+      const chatScore =
+        riskLevel === 'crisis'
+          ? 92
+          : riskLevel === 'high'
+            ? 78
+            : riskLevel === 'moderate'
+              ? 55
+              : riskLevel === 'low'
+                ? 28
+                : null;
+      const score = chatScore ?? snap?.confidence ?? (moods[0] ?? 40);
       const level =
-        score >= 75 ? 'High' : score >= 55 ? 'Elevated' : score >= 35 ? 'Moderate' : 'Low';
+        riskLevel === 'crisis' || riskLevel === 'high'
+          ? 'High'
+          : riskLevel === 'moderate'
+            ? 'Elevated'
+            : score >= 75
+              ? 'High'
+              : score >= 55
+                ? 'Elevated'
+                : score >= 35
+                  ? 'Moderate'
+                  : 'Low';
+
+      const emotionLabel = chatMeta.emotion
+        ? chatMeta.emotion.charAt(0).toUpperCase() + chatMeta.emotion.slice(1)
+        : null;
+      const riskLabel = riskLevel
+        ? riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)
+        : null;
+      const signal = emotionLabel && riskLabel
+        ? `Aria chat · ${emotionLabel} · ${riskLabel} risk`
+        : snap?.factorsJson
+          ? (JSON.parse(snap.factorsJson) as string[]).join(', ') || 'Needs review'
+          : 'Follow-up check-in';
+
+      const lastChatAt = latestAssistant?.createdAt ?? user.conversations[0]?.updatedAt;
       const c = user.contactConsent;
       return {
         id: user.id,
         name: user.displayName || `Anonymous ${user.id.slice(-4)}`,
         score,
         level,
-        signal: snap?.factorsJson
-          ? (JSON.parse(snap.factorsJson) as string[]).join(', ') || 'Needs review'
-          : 'Follow-up check-in',
-        last: user.updatedAt.toISOString(),
+        signal,
+        emotion: chatMeta.emotion ?? null,
+        riskLevel: riskLevel ?? null,
+        confidence: chatMeta.confidence ?? null,
+        last: (lastChatAt ?? user.updatedAt).toISOString(),
         consent: [
           c?.allowWellbeingSummary ? 'Care summary' : null,
           c?.allowContact ? 'contact' : null,

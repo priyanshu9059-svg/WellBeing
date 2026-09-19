@@ -23,6 +23,15 @@ export function createApp() {
   );
   app.use(express.json({ limit: '2mb' }));
 
+  app.get('/', (_req, res) => {
+    res.json({
+      ok: true,
+      service: 'wellbeing-backend',
+      message: 'API only — open the app at http://localhost:3000',
+      health: '/api/health',
+    });
+  });
+
   app.get('/api/health', (_req, res) => {
     res.json({
       ok: true,

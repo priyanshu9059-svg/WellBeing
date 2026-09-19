@@ -6,12 +6,20 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { generateChatReply, screenRisk } from '../services/wellbeing.js';
+import {
+  deleteAriaSession,
+  riskToUrgency,
+  sendAriaMessage,
+  startAriaSession,
+} from '../services/aria.js';
 
 export const chatRouter = Router();
 
 chatRouter.use(requireAuth);
 
 const uploadDir = path.resolve(process.cwd(), 'uploads', 'conversations');
+const ARIA_GREETING =
+  "Hello, I'm Aria — I'm here to listen, without judgment. How have you been feeling today?";
 
 function messageMetadata(value: string) {
   try {
@@ -29,6 +37,69 @@ function extensionFromMime(mime: string) {
   return 'webm';
 }
 
+function crisisActions() {
+  return [
+    { label: 'Call Tele-MANAS (14416)', href: 'tel:14416', tone: 'danger' as const },
+    { label: 'Call emergency (112)', href: 'tel:112', tone: 'danger' as const },
+    { label: 'Open safety resources', href: '/crisis', tone: 'secondary' as const },
+  ];
+}
+
+async function ensureAriaSession(conversationId: string, existing?: string | null) {
+  if (existing) return existing;
+  const started = await startAriaSession();
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { ariaSessionId: started.sessionId, title: 'Aria · wellbeing companion' },
+  });
+  return started.sessionId;
+}
+
+async function buildReply(
+  message: string,
+  conversationId: string,
+  ariaSessionId: string | null | undefined,
+  language: 'English' | 'Hindi' | 'Hinglish',
+  history: Array<{ role: 'user' | 'assistant'; text: string }>,
+) {
+  try {
+    const sessionId = await ensureAriaSession(conversationId, ariaSessionId);
+    const aria = await sendAriaMessage(sessionId, message);
+    const urgency = riskToUrgency(aria.riskLevel);
+    const softFail = /trouble reaching my thinking systems/i.test(aria.reply);
+    let text = aria.reply;
+    let choices: { label: string; value: string }[] = [];
+    let actions =
+      aria.riskLevel === 'crisis' || aria.riskLevel === 'high' ? crisisActions() : [];
+    let source: 'aria' | 'openai' | 'fallback' = 'aria';
+
+    if (softFail) {
+      const fallback = await generateChatReply(message, history, language);
+      text = fallback.text;
+      choices = fallback.choices;
+      actions = fallback.actions.length ? fallback.actions : actions;
+      source = fallback.source ?? 'fallback';
+    }
+
+    return {
+      text,
+      choices,
+      actions,
+      urgency: softFail ? (urgency === 'none' ? 'support' : urgency) : urgency,
+      emotion: aria.emotion,
+      riskLevel: aria.riskLevel,
+      confidence: aria.confidence,
+      source,
+      ariaSessionId: sessionId,
+      crisis: aria.riskLevel === 'crisis',
+    };
+  } catch (err) {
+    console.warn('Aria unavailable, using fallback reply:', (err as Error).message);
+    const reply = await generateChatReply(message, history, language);
+    return { ...reply, ariaSessionId: ariaSessionId ?? null, crisis: false };
+  }
+}
+
 chatRouter.get('/conversation', async (req: AuthedRequest, res, next) => {
   try {
     let conversation = await prisma.conversation.findFirst({
@@ -40,10 +111,11 @@ chatRouter.get('/conversation', async (req: AuthedRequest, res, next) => {
       conversation = await prisma.conversation.create({
         data: {
           userId: req.user!.id,
+          title: 'Aria · wellbeing companion',
           messages: {
             create: {
               role: 'assistant',
-              text: 'I’m here with you. You can share as much or as little as feels comfortable. What is on your mind?',
+              text: ARIA_GREETING,
             },
           },
         },
@@ -82,7 +154,9 @@ chatRouter.post('/send', async (req: AuthedRequest, res, next) => {
       : await prisma.conversation.findFirst({ where: { userId: req.user!.id }, orderBy: { updatedAt: 'desc' } });
 
     if (!conversation) {
-      conversation = await prisma.conversation.create({ data: { userId: req.user!.id } });
+      conversation = await prisma.conversation.create({
+        data: { userId: req.user!.id, title: 'Aria · wellbeing companion' },
+      });
     }
 
     const userMsg = await prisma.chatMessage.create({
@@ -94,42 +168,52 @@ chatRouter.post('/send', async (req: AuthedRequest, res, next) => {
       },
     });
 
-    if (risk.flagged) {
-      await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
-      return res.json({
-        flagged: true,
-        userMessage: {
-          id: userMsg.id,
-          role: 'user',
-          text: userMsg.text,
-          createdAt: userMsg.createdAt.toISOString(),
-        },
-        assistantMessage: null,
-      });
-    }
-
     const history = await prisma.chatMessage.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'desc' },
       take: 12,
     });
-    const reply = await generateChatReply(
+
+    const reply = await buildReply(
       body.message,
-      history.reverse().map((item) => ({ role: item.role === 'assistant' ? 'assistant' as const : 'user' as const, text: item.text })),
+      conversation.id,
+      conversation.ariaSessionId,
       body.language ?? 'English',
+      history.reverse().map((item) => ({
+        role: item.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+        text: item.text,
+      })),
     );
+
+    const crisis = risk.flagged || reply.crisis === true;
     const assistant = await prisma.chatMessage.create({
       data: {
         conversationId: conversation.id,
         role: 'assistant',
         text: reply.text,
-        metadataJson: JSON.stringify({ choices: reply.choices, actions: reply.actions, urgency: reply.urgency }),
+        flagged: crisis,
+        metadataJson: JSON.stringify({
+          choices: reply.choices,
+          actions: reply.actions,
+          urgency: reply.urgency,
+          emotion: reply.emotion,
+          riskLevel: reply.riskLevel,
+          confidence: reply.confidence,
+          source: reply.source,
+        }),
       },
     });
-    await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        updatedAt: new Date(),
+        ...(reply.ariaSessionId ? { ariaSessionId: reply.ariaSessionId } : {}),
+      },
+    });
 
     res.json({
-      flagged: false,
+      flagged: crisis,
       conversationId: conversation.id,
       userMessage: {
         id: userMsg.id,
@@ -253,14 +337,25 @@ chatRouter.delete('/recordings/:id', async (req: AuthedRequest, res, next) => {
 
 chatRouter.delete('/conversation', async (req: AuthedRequest, res, next) => {
   try {
+    const existing = await prisma.conversation.findMany({
+      where: { userId: req.user!.id },
+      select: { ariaSessionId: true },
+    });
+    await Promise.all(
+      existing
+        .map((c) => c.ariaSessionId)
+        .filter((id): id is string => Boolean(id))
+        .map((id) => deleteAriaSession(id)),
+    );
     await prisma.conversation.deleteMany({ where: { userId: req.user!.id } });
     const conversation = await prisma.conversation.create({
       data: {
         userId: req.user!.id,
+        title: 'Aria · wellbeing companion',
         messages: {
           create: {
             role: 'assistant',
-            text: 'I’m here with you. You can share as much or as little as feels comfortable. What is on your mind?',
+            text: ARIA_GREETING,
           },
         },
       },
