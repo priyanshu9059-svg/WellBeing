@@ -4,11 +4,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Check, IdCard, MapPin, Phone, UserRound } from 'lucide-react';
+import { Check, IdCard, MapPin, Pencil, Phone, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ensureSession, isApiEnabled } from '@/lib/api';
-import { getServices, type UserProfileDetails } from '@/services';
+import { getServices, type AbhaProfileDto, type AuthUser, type UserProfileDetails } from '@/services';
 
 const GENDERS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say', 'Self-describe'] as const;
 
@@ -21,23 +21,34 @@ const empty: UserProfileDetails = {
   skipped: false,
 };
 
-type Mode = 'complete' | 'edit';
+type Mode = 'complete' | 'edit' | 'view';
 
-export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
+function displayOrDash(value: string | number | null | undefined) {
+  if (value == null) return 'Not provided';
+  const text = String(value).trim();
+  return text || 'Not provided';
+}
+
+export function ProfileDetailsPage({ mode = 'view' }: { mode?: Mode }) {
   const router = useRouter();
   const services = getServices();
   const [form, setForm] = useState<UserProfileDetails>(empty);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [customGender, setCustomGender] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [abhaPreview, setAbhaPreview] = useState<AbhaProfileDto | null>(null);
+  const [editing, setEditing] = useState(mode === 'complete' || mode === 'edit');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         if (isApiEnabled()) await ensureSession();
+        const me = await services.authentication.me();
+        if (!cancelled) setUser(me);
         if (services.userProfile.getDetails) {
           const details = await services.userProfile.getDetails();
           if (cancelled) return;
@@ -49,10 +60,25 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
             age: details.age,
             skipped: details.skipped,
             updatedAt: details.updatedAt,
+            abhaVerified: details.abhaVerified,
+            abhaVerifiedAt: details.abhaVerifiedAt,
+            abhaProfile: details.abhaProfile,
           });
+          if (details.abhaProfile && typeof details.abhaProfile === 'object') {
+            setAbhaPreview(details.abhaProfile as unknown as AbhaProfileDto);
+          }
           if (details.gender && !GENDERS.includes(details.gender as (typeof GENDERS)[number])) {
             setCustomGender(details.gender);
             setForm((f) => ({ ...f, gender: 'Self-describe' }));
+          }
+          if (mode === 'view') {
+            const hasAny =
+              Boolean(details.location?.trim()) ||
+              Boolean(details.abhaId?.trim()) ||
+              Boolean(details.phone?.trim()) ||
+              Boolean(details.gender?.trim()) ||
+              details.age != null;
+            setEditing(!hasAny && Boolean(me && !me.anonymous));
           }
         }
       } catch {
@@ -64,7 +90,46 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mode]);
+
+  async function fetchAbha(apply: boolean) {
+    const id = form.abhaId.trim();
+    if (!id) {
+      setError('Enter a 14-digit ABHA number first.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      if (isApiEnabled()) await ensureSession();
+      if (apply && services.userProfile.applyAbha) {
+        const result = await services.userProfile.applyAbha(id);
+        setAbhaPreview(result.profile);
+        setForm({
+          location: result.details.location || '',
+          abhaId: result.details.abhaId || '',
+          phone: result.details.phone || '',
+          gender: result.details.gender || '',
+          age: result.details.age,
+          skipped: result.details.skipped,
+          updatedAt: result.details.updatedAt,
+          abhaVerified: result.details.abhaVerified,
+          abhaVerifiedAt: result.details.abhaVerifiedAt,
+          abhaProfile: result.details.abhaProfile,
+        });
+        setStatus(`ABHA details applied (${result.profile.source}).`);
+      } else if (services.userProfile.lookupAbha) {
+        const profile = await services.userProfile.lookupAbha(id);
+        setAbhaPreview(profile);
+        setStatus(`ABHA found via ${profile.source} lookup.`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'ABHA lookup failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function genderValue() {
     return form.gender === 'Self-describe' ? customGender.trim() : form.gender;
@@ -94,6 +159,8 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
       }
       if (mode === 'complete') {
         setTimeout(() => router.push('/support'), 600);
+      } else {
+        setEditing(false);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save profile.');
@@ -113,6 +180,103 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
     );
   }
 
+  const signedIn = Boolean(user && !user.anonymous);
+  const displayName = user?.displayName?.trim() || user?.email || 'Your profile';
+  const genderLabel = form.gender === 'Self-describe' ? customGender || form.gender : form.gender;
+  const abhaName =
+    abhaPreview?.name ||
+    (form.abhaProfile && typeof form.abhaProfile.name === 'string' ? form.abhaProfile.name : '');
+
+  if (!editing && mode !== 'complete') {
+    return (
+      <div className="narrow-page profile-view-page">
+        <Card className="access-card profile-view-card">
+          <div className="profile-view-hero">
+            <div className="profile-view-avatar" aria-hidden="true">
+              {(displayName.match(/\b\w/g) || ['?']).slice(0, 2).join('').toUpperCase()}
+            </div>
+            <div>
+              <p className="kicker">{signedIn ? 'Signed-in profile' : 'Browsing anonymously'}</p>
+              <h2>{displayName}</h2>
+              {user?.email && <p className="profile-view-email">{user.email}</p>}
+              {!signedIn && (
+                <p>
+                  Sign up to save a named profile.{' '}
+                  <Link href="/signup">Create an account</Link>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <dl className="profile-view-grid">
+            <div>
+              <dt>Location</dt>
+              <dd>{displayOrDash(form.location)}</dd>
+            </div>
+            <div>
+              <dt>ABHA ID</dt>
+              <dd>
+                {displayOrDash(form.abhaId)}
+                {form.abhaVerified ? <span className="abha-verified-inline">Verified</span> : null}
+              </dd>
+            </div>
+            <div>
+              <dt>Phone</dt>
+              <dd>{displayOrDash(form.phone)}</dd>
+            </div>
+            <div>
+              <dt>Gender</dt>
+              <dd>{displayOrDash(genderLabel)}</dd>
+            </div>
+            <div>
+              <dt>Age</dt>
+              <dd>{displayOrDash(form.age)}</dd>
+            </div>
+            {abhaName ? (
+              <div>
+                <dt>ABHA name</dt>
+                <dd>{abhaName}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          {abhaPreview && (
+            <div className="abha-preview">
+              <b>{abhaPreview.name}</b>
+              <span>
+                {abhaPreview.abhaNumberFormatted} · {abhaPreview.status}
+              </span>
+              <span>
+                {[abhaPreview.gender, abhaPreview.dateOfBirth, abhaPreview.district, abhaPreview.state]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            </div>
+          )}
+
+          <div className="row profile-view-actions">
+            <Button onClick={() => setEditing(true)}>
+              <Pencil size={16} /> Edit profile
+            </Button>
+            {form.location.trim() ? (
+              <Link className="btn btn-secondary" href="/consultancy">
+                <MapPin size={16} /> Find care near {form.location.trim()}
+              </Link>
+            ) : (
+              <Link className="btn btn-secondary" href="/consultancy">
+                <MapPin size={16} /> Find nearby care
+              </Link>
+            )}
+          </div>
+
+          {form.updatedAt && (
+            <p className="fine-print">Last updated {new Date(form.updatedAt).toLocaleString()}</p>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="narrow-page">
       <Card className="access-card profile-details-card">
@@ -124,6 +288,7 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
         <p>
           Location, ABHA ID, phone, gender, and age help counsellors support you better when you consent to share.
           None of these fields are required{mode === 'complete' ? ' — you can skip and fill them later' : ''}.
+          Your location is also used to centre Find care maps.
         </p>
 
         <label className="field">
@@ -147,7 +312,46 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
             placeholder="14-digit ABHA number (optional)"
             inputMode="numeric"
           />
-          <small>Ayushman Bharat Health Account — never required to use support tools.</small>
+          <small>Ayushman Bharat Health Account — fetch official details when available.</small>
+          <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy || !form.abhaId.trim()}
+              onClick={() => void fetchAbha(false)}
+            >
+              Look up ABHA
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy || !form.abhaId.trim()}
+              onClick={() => void fetchAbha(true)}
+            >
+              Fetch &amp; apply to profile
+            </Button>
+          </div>
+          {form.abhaVerified && (
+            <small className="abha-verified">
+              ABHA verified{form.abhaVerifiedAt ? ` · ${new Date(form.abhaVerifiedAt).toLocaleString()}` : ''}
+            </small>
+          )}
+          {abhaPreview && (
+            <div className="abha-preview">
+              <b>{abhaPreview.name}</b>
+              <span>
+                {abhaPreview.abhaNumberFormatted} · {abhaPreview.status}
+              </span>
+              <span>
+                {[abhaPreview.gender, abhaPreview.dateOfBirth, abhaPreview.district, abhaPreview.state]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+              <span>
+                Source: {abhaPreview.source === 'live' ? 'ABDM API' : 'Demo lookup (set ABHA_CLIENT_ID for live)'}
+              </span>
+            </div>
+          )}
         </label>
 
         <label className="field">
@@ -220,10 +424,10 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
               Skip for now
             </Button>
           )}
-          {mode === 'edit' && (
-            <Link className="btn btn-ghost" href="/settings">
-              Back to settings
-            </Link>
+          {mode !== 'complete' && (
+            <Button variant="secondary" onClick={() => setEditing(false)} disabled={busy}>
+              Cancel
+            </Button>
           )}
         </div>
 

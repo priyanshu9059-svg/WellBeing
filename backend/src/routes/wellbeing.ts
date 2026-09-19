@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { analyzeWellbeing, analyzeVoiceHeuristic, screenRisk } from '../services/wellbeing.js';
+import { formatAbha, lookupAbha, validateAbhaNumber } from '../services/abha.js';
 
 export const wellbeingRouter = Router();
 wellbeingRouter.use(requireAuth);
@@ -174,7 +175,17 @@ function mapProfileDetails(user: {
   age: number | null;
   profileSkipped: boolean;
   profileUpdatedAt: Date | null;
+  abhaVerified?: boolean;
+  abhaVerifiedAt?: Date | null;
+  abhaProfileJson?: string;
 }) {
+  let abhaProfile: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(user.abhaProfileJson || '{}') as Record<string, unknown>;
+    if (parsed && Object.keys(parsed).length) abhaProfile = parsed;
+  } catch {
+    abhaProfile = null;
+  }
   return {
     location: user.location || '',
     abhaId: user.abhaId || '',
@@ -183,6 +194,9 @@ function mapProfileDetails(user: {
     age: user.age,
     skipped: user.profileSkipped,
     updatedAt: user.profileUpdatedAt?.toISOString() ?? null,
+    abhaVerified: Boolean(user.abhaVerified),
+    abhaVerifiedAt: user.abhaVerifiedAt?.toISOString() ?? null,
+    abhaProfile,
   };
 }
 
@@ -231,6 +245,69 @@ profileRouter.put('/details', async (req: AuthedRequest, res, next) => {
       hasPhone: Boolean(user.phone),
     });
     res.json(mapProfileDetails(user));
+  } catch (e) {
+    next(e);
+  }
+});
+
+profileRouter.post('/abha/lookup', async (req: AuthedRequest, res, next) => {
+  try {
+    const body = z.object({ abhaId: z.string().min(8) }).parse(req.body ?? {});
+    const profile = await lookupAbha(body.abhaId);
+    res.json({ profile });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'ABHA lookup failed.';
+    res.status(400).json({ error: message });
+  }
+});
+
+profileRouter.post('/abha/apply', async (req: AuthedRequest, res, next) => {
+  try {
+    const body = z.object({ abhaId: z.string().min(8) }).parse(req.body ?? {});
+    const validated = validateAbhaNumber(body.abhaId);
+    if (!validated.ok) return res.status(400).json({ error: validated.error });
+
+    const profile = await lookupAbha(validated.digits);
+    const genderMap: Record<string, string> = { M: 'Man', F: 'Woman', O: 'Prefer not to say' };
+    let age: number | null = null;
+    if (profile.dateOfBirth) {
+      const born = Date.parse(profile.dateOfBirth);
+      if (!Number.isNaN(born)) {
+        age = Math.max(1, Math.min(120, Math.floor((Date.now() - born) / (365.25 * 86400000))));
+      }
+    }
+
+    const current = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!current) return res.status(404).json({ error: 'User not found.' });
+
+    const saved = await prisma.user.update({
+      where: { id: current.id },
+      data: {
+        abhaId: formatAbha(validated.digits),
+        abhaVerified: true,
+        abhaVerifiedAt: new Date(),
+        abhaProfileJson: JSON.stringify(profile),
+        phone: current.phone || profile.mobile || '',
+        gender: current.gender || genderMap[profile.gender] || profile.gender || '',
+        age: current.age ?? age,
+        location:
+          current.location ||
+          [profile.district, profile.state].filter(Boolean).join(', ') ||
+          '',
+        displayName:
+          current.displayName?.startsWith('Anonymous') && profile.name
+            ? profile.name
+            : current.displayName,
+        profileSkipped: false,
+        profileUpdatedAt: new Date(),
+      },
+    });
+
+    await audit(req.user!.id, 'profile.abha_applied', {
+      source: profile.source,
+      abhaId: profile.abhaNumberFormatted,
+    });
+    res.json({ profile, details: mapProfileDetails(saved) });
   } catch (e) {
     next(e);
   }

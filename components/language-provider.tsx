@@ -14,6 +14,8 @@ export type TranslationKey =
   | 'journal'
   | 'exercises'
   | 'wellbeing'
+  | 'checkIn'
+  | 'history'
   | 'findCare'
   | 'safetyPlan'
   | 'privacy'
@@ -33,6 +35,10 @@ export type TranslationKey =
   | 'exercisesDescription'
   | 'wellbeingTitle'
   | 'wellbeingDescription'
+  | 'checkInTitle'
+  | 'checkInDescription'
+  | 'historyTitle'
+  | 'historyDescription'
   | 'consultancyTitle'
   | 'consultancyDescription'
   | 'professionalTitle'
@@ -147,6 +153,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     journal: 'Journal',
     exercises: 'Exercises',
     wellbeing: 'Wellbeing',
+    checkIn: 'Check-in',
+    history: 'History',
     findCare: 'Find care',
     safetyPlan: 'Safety plan',
     privacy: 'Privacy',
@@ -166,6 +174,10 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     exercisesDescription: 'Short, guided practices for grounding, rest, and manageable next steps.',
     wellbeingTitle: 'Wellbeing conversation',
     wellbeingDescription: 'Talk by voice, camera, or text with the support companion.',
+    checkInTitle: 'Wellbeing check-in',
+    checkInDescription: 'Share a note or voice about how you are coping. ML scores help counsellors monitor distress.',
+    historyTitle: 'Your history',
+    historyDescription: 'Check-ins, scores, voice notes, and scheduled appointments in one timeline.',
     consultancyTitle: 'Find care near you',
     consultancyDescription: 'Explore nearby professional support and manage appointment requests in one place.',
     professionalTitle: 'Professional care workspace',
@@ -183,7 +195,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     completeProfileTitle: 'Optional details',
     completeProfileDescription: 'Location, ABHA ID, phone, gender, and age — all skippable.',
     profileTitle: 'Your profile',
-    profileDescription: 'View or update location, ABHA ID, phone, gender, and age anytime.',
+    profileDescription: 'Your saved details — location, ABHA, phone, gender, and age.',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'A demo code can personalize context without asking who you are.',
     orgTitle: 'Organization wellbeing overview',
@@ -279,6 +291,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     journal: 'जर्नल',
     exercises: 'अभ्यास',
     wellbeing: 'वेलबीइंग',
+    checkIn: 'चेक-इन',
+    history: 'इतिहास',
     findCare: 'देखभाल खोजें',
     safetyPlan: 'सुरक्षा योजना',
     privacy: 'गोपनीयता',
@@ -298,6 +312,10 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     exercisesDescription: 'ग्राउंडिंग, आराम और छोटे अगले कदमों के लिए छोटे अभ्यास।',
     wellbeingTitle: 'वेलबीइंग बातचीत',
     wellbeingDescription: 'Voice, camera या text से support companion से बात करें।',
+    checkInTitle: 'वेलबीइंग चेक-इन',
+    checkInDescription: 'नोट या आवाज़ से बताएं कि आप कैसा महसूस कर रहे हैं। ML स्कोर counsellor को मदद करते हैं।',
+    historyTitle: 'आपका इतिहास',
+    historyDescription: 'चेक-इन, स्कोर, आवाज़ और appointments एक timeline में।',
     consultancyTitle: 'अपने पास देखभाल खोजें',
     consultancyDescription: 'पास की professional support देखें और appointments एक जगह manage करें।',
     professionalTitle: 'प्रोफेशनल केयर वर्कस्पेस',
@@ -315,7 +333,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     completeProfileTitle: 'वैकल्पिक विवरण',
     completeProfileDescription: 'स्थान, ABHA ID, फ़ोन, लिंग और आयु — सब छोड़ सकते हैं।',
     profileTitle: 'आपकी प्रोफ़ाइल',
-    profileDescription: 'स्थान, ABHA ID, फ़ोन, लिंग और आयु कभी भी देखें या बदलें।',
+    profileDescription: 'आपकी सहेजी गई जानकारी — स्थान, ABHA, फ़ोन, लिंग और आयु।',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'Demo code बिना आपकी पहचान पूछे context personalize कर सकता है।',
     orgTitle: 'Organization wellbeing overview',
@@ -411,6 +429,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     journal: 'Journal',
     exercises: 'Exercises',
     wellbeing: 'Wellbeing',
+    checkIn: 'Check-in',
+    history: 'History',
     findCare: 'Find care',
     safetyPlan: 'Safety plan',
     privacy: 'Privacy',
@@ -430,6 +450,10 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     exercisesDescription: 'Grounding, rest aur manageable next steps ke liye short guided practices.',
     wellbeingTitle: 'Wellbeing conversation',
     wellbeingDescription: 'Voice, camera, ya text se support companion se baat karo.',
+    checkInTitle: 'Wellbeing check-in',
+    checkInDescription: 'Note ya voice se batao aap kaise feel kar rahe ho. ML scores counsellor ko monitor karne mein madad karte hain.',
+    historyTitle: 'Aapka history',
+    historyDescription: 'Check-ins, scores, voice aur appointments ek timeline mein.',
     consultancyTitle: 'Nearby care find karo',
     consultancyDescription: 'Nearby professional support explore karo aur appointment requests manage karo.',
     professionalTitle: 'Professional care workspace',
@@ -447,7 +471,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     completeProfileTitle: 'Optional details',
     completeProfileDescription: 'Location, ABHA ID, phone, gender, aur age — sab skip kar sakte ho.',
     profileTitle: 'Aapki profile',
-    profileDescription: 'Location, ABHA ID, phone, gender, aur age kabhi bhi dekho ya badlo.',
+    profileDescription: 'Aapki saved details — location, ABHA, phone, gender, aur age.',
     accessTitle: 'Anonymous organization access',
     accessDescription: 'Demo code bina identity pooche context personalize kar sakta hai.',
     orgTitle: 'Organization wellbeing overview',

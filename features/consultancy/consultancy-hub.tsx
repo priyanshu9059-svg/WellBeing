@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, CalendarClock, Check, ChevronRight, Clock3, Cross, ExternalLink, HandHeart, LocateFixed, MapPin, Navigation, Phone, Search, Shield, Star, Stethoscope, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { isApiEnabled } from '@/lib/api';
+import { ensureSession, isApiEnabled } from '@/lib/api';
 import { getServices, type AppointmentDto } from '@/services';
 
 type ServiceType = 'Mental health clinics' | 'Hospitals' | 'Police stations' | 'Trauma support & NGOs';
@@ -204,10 +204,11 @@ export function ConsultancyHub(){
   const [filter,setFilter]=useState<Filter>('All');
   const [selected,setSelected]=useState<Place|null>(null);
   const [query,setQuery]=useState('');
-  const [location,setLocation]=useState('Indiranagar, Bengaluru');
-  const [activeLocation,setActiveLocation]=useState('Indiranagar, Bengaluru');
+  const [location,setLocation]=useState('');
+  const [activeLocation,setActiveLocation]=useState('');
   const [coords,setCoords]=useState('');
   const [locationMessage,setLocationMessage]=useState('');
+  const [profileLocationReady,setProfileLocationReady]=useState(false);
   const [booking,setBooking]=useState<Place|null>(null);
   const [booked,setBooked]=useState(false);
   const [bookingError,setBookingError]=useState<string|null>(null);
@@ -230,7 +231,36 @@ export function ConsultancyHub(){
     .sort((a,b)=>sort==='rating' ? Number(b.rating==='-'?0:b.rating)-Number(a.rating==='-'?0:a.rating) : a.distanceKm-b.distanceKm),[filter,places,query,sort]);
 
   useEffect(()=>{ setSelected(visible[0] ?? null); },[visible]);
-  useEffect(()=>{ void refreshGooglePlaces(searchArea); },[filter, searchArea]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        if(isApiEnabled()) await ensureSession();
+        const details=services.userProfile.getDetails?await services.userProfile.getDetails():null;
+        const saved=details?.location?.trim()||'';
+        if(cancelled) return;
+        if(saved){
+          setLocation(saved);
+          setActiveLocation(saved);
+          setLocationMessage(`Using your profile location: ${saved}`);
+        }else{
+          const fallback='Indiranagar, Bengaluru';
+          setLocation(fallback);
+          setActiveLocation(fallback);
+        }
+      }catch{
+        if(!cancelled){
+          const fallback='Indiranagar, Bengaluru';
+          setLocation(fallback);
+          setActiveLocation(fallback);
+        }
+      }finally{
+        if(!cancelled) setProfileLocationReady(true);
+      }
+    })();
+    return()=>{cancelled=true};
+  },[]);
+  useEffect(()=>{ if(!profileLocationReady||!searchArea) return; void refreshGooglePlaces(searchArea); },[filter, searchArea, profileLocationReady]);
   useEffect(()=>{ let cancelled=false; async function load(){ if(!isApiEnabled()) return; try{const remote=await services.care.listAppointments(); if(!cancelled&&remote.length) saveAppointments(remote.map(mapAppointment));}catch{} } void load(); return()=>{cancelled=true}; },[]);
 
   async function refreshGooglePlaces(nextLocation=location) {

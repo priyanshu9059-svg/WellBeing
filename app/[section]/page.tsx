@@ -7,6 +7,8 @@ import { PrivacyCenter } from '@/features/privacy/privacy-center';
 import { SafetyPlan } from '@/features/safety/safety-plan';
 import { AboutPage, CrisisPage, FaqPage, NotFound, OfflinePage, SettingsPage, SupportHome, TrustPage } from '@/features/static/pages';
 import { ConsultancyHub } from '@/features/consultancy/consultancy-hub';
+import { CheckInFlow } from '@/features/checkin/check-in-flow';
+import { CheckInHistory } from '@/features/checkin/check-in-history';
 import { ProfessionalPortal } from '@/features/professional/professional-portal';
 import { ProfileDetailsPage } from '@/features/profile/profile-details';
 import { LoginPage } from '@/features/auth/login-page';
@@ -19,6 +21,8 @@ const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;co
   'video-chat':{title:'chatTitle',description:'chatDescription',content:<VideoChatPage/>},
   exercises:{title:'exercisesTitle',description:'exercisesDescription',content:<ExerciseLibrary/>},
   wellbeing:{title:'wellbeingTitle',description:'wellbeingDescription',content:<ChatExperience/>},
+  'check-in':{title:'checkInTitle',description:'checkInDescription',content:<CheckInFlow/>},
+  history:{title:'historyTitle',description:'historyDescription',content:<CheckInHistory/>},
   consultancy:{title:'consultancyTitle',description:'consultancyDescription',content:<ConsultancyHub/>},
   professional:{title:'professionalTitle',description:'professionalDescription',content:<ProfessionalPortal/>},
   'safety-plan':{title:'safetyTitle',description:'safetyDescription',content:<SafetyPlan/>},
@@ -27,7 +31,7 @@ const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;co
   settings:{title:'settingsTitle',description:'settingsDescription',content:<SettingsPage/>},
   signup:{title:'signupTitle',description:'signupDescription',content:<LoginPage/>},
   'complete-profile':{title:'completeProfileTitle',description:'completeProfileDescription',content:<ProfileDetailsPage mode="complete"/>},
-  profile:{title:'profileTitle',description:'profileDescription',content:<ProfileDetailsPage mode="edit"/>},
+  profile:{title:'profileTitle',description:'profileDescription',content:<ProfileDetailsPage mode="view"/>},
   'access-code':{title:'accessTitle',description:'accessDescription',content:<AccessCode/>},
   'organization-demo':{title:'orgTitle',description:'orgDescription',content:<OrganizationDemo/>},
   trust:{title:'trustTitle',description:'trustDescription',content:<TrustPage/>},

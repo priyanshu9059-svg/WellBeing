@@ -48,6 +48,8 @@ export interface UserProfileService {
   getConsent?(signal?: AbortSignal): Promise<ContactConsent>;
   getDetails?(signal?: AbortSignal): Promise<UserProfileDetails>;
   saveDetails?(input: Partial<UserProfileDetails> & { skipped?: boolean }, signal?: AbortSignal): Promise<UserProfileDetails>;
+  lookupAbha?(abhaId: string, signal?: AbortSignal): Promise<AbhaProfileDto>;
+  applyAbha?(abhaId: string, signal?: AbortSignal): Promise<{ profile: AbhaProfileDto; details: UserProfileDetails }>;
 }
 export interface JournalService {
   list(signal?: AbortSignal): Promise<JournalEntry[]>;
@@ -99,6 +101,7 @@ export type AuthUser = {
   role: string;
   anonymous: boolean;
   language: string;
+  anonymousId?: string | null;
 };
 
 export type ProfessionalSignup = {
@@ -117,6 +120,25 @@ export type UserProfileDetails = {
   age: number | null;
   skipped?: boolean;
   updatedAt?: string | null;
+  abhaVerified?: boolean;
+  abhaVerifiedAt?: string | null;
+  abhaProfile?: Record<string, unknown> | null;
+};
+
+export type AbhaProfileDto = {
+  abhaNumber: string;
+  abhaNumberFormatted: string;
+  name: string;
+  gender: string;
+  dateOfBirth: string | null;
+  mobile: string | null;
+  email: string | null;
+  address: string | null;
+  district: string | null;
+  state: string | null;
+  status: string;
+  source: 'live' | 'demo';
+  verified: boolean;
 };
 
 export type PatientProfile = {
@@ -181,6 +203,7 @@ export type ProfessionalDashboard = {
     emotion?: string | null;
     riskLevel?: string | null;
     confidence?: number | null;
+    checkIns?: CheckInDto[];
     profile?: PatientProfile;
   }>;
   queries: Array<{ id: string; patient: string; text: string; age: string; priority: string; status: string }>;
@@ -195,6 +218,53 @@ export type ProfessionalDashboard = {
     patientId: string;
   }>;
 };
+
+export type CheckInTheme = { id: string; label: string };
+export type CheckInDto = {
+  id: string;
+  theme: string;
+  themeLabel?: string;
+  text: string;
+  transcript?: string;
+  modality: string;
+  hasVoice: boolean;
+  voiceSizeBytes?: number;
+  distress?: number | null;
+  safetyRisk?: number | null;
+  escalationRisk?: number | null;
+  priority?: string | null;
+  sentimentLabel?: string | null;
+  sentimentScore?: number | null;
+  stressScore?: number | null;
+  emotionLabel?: string | null;
+  factors?: string[];
+  createdAt: string;
+  userId?: string;
+};
+export type TimelineItem =
+  | { kind: 'checkin'; at: string; checkIn: CheckInDto; appointment?: undefined }
+  | {
+      kind: 'appointment';
+      at: string;
+      appointment: {
+        id: string;
+        place: string;
+        clinician: string;
+        date: string;
+        time: string;
+        mode: string;
+        status: string;
+      };
+      checkIn?: undefined;
+    };
+
+export interface CheckInService {
+  themes(signal?: AbortSignal): Promise<CheckInTheme[]>;
+  list(signal?: AbortSignal): Promise<CheckInDto[]>;
+  timeline(signal?: AbortSignal): Promise<TimelineItem[]>;
+  create(input: { theme: string; text: string; language?: string }, signal?: AbortSignal): Promise<CheckInDto>;
+  uploadVoice(id: string, wav: Blob, signal?: AbortSignal): Promise<CheckInDto>;
+}
 
 const delay = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -526,7 +596,44 @@ export const mockServices = {
       throw new Error('API not configured');
     },
   },
+  checkIns: <CheckInService>{
+    async themes() {
+      return [
+        { id: 'threats_intimidation', label: 'Threats / intimidation' },
+        { id: 'court_legal_stress', label: 'Court / legal stress' },
+        { id: 'investigation_delays', label: 'Investigation or trial delays' },
+        { id: 'social_ostracism', label: 'Social ostracism / isolation' },
+        { id: 'economic_hardship', label: 'Economic hardship' },
+        { id: 'rehabilitation_housing', label: 'Rehabilitation / housing' },
+        { id: 'sleep_daily', label: 'Sleep / daily functioning' },
+        { id: 'family_safety', label: 'Family safety' },
+        { id: 'counselling_support', label: 'Counselling / psychological support' },
+        { id: 'general_wellbeing', label: 'General wellbeing' },
+      ];
+    },
+    async list() {
+      return [];
+    },
+    async timeline() {
+      return [];
+    },
+    async create() {
+      throw new Error('API not configured');
+    },
+    async uploadVoice() {
+      throw new Error('API not configured');
+    },
+  },
 };
+
+function clearLocalChatCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('wellbeing-support:conversation');
+  } catch {
+    /* ignore */
+  }
+}
 
 export const apiServices = {
   chat: apiChatService,
@@ -590,16 +697,24 @@ export const apiServices = {
         signal,
       });
       setToken(data.token);
+      clearLocalChatCache();
       return data;
     },
     async signUp(input, signal) {
-      const data = await apiFetch<{ token: string; user: AuthUser; needsProfile?: boolean }>('/api/auth/signup', {
-        method: 'POST',
-        body: input,
-        auth: false,
-        signal,
-      });
+      await ensureSession(signal);
+      const data = await apiAuthed<{ token: string; user: AuthUser; needsProfile?: boolean; upgraded?: boolean }>(
+        '/api/auth/signup',
+        {
+          method: 'POST',
+          body: {
+            ...input,
+            anonymousKey: typeof window !== 'undefined' ? localStorage.getItem('wellbeing-support:anonymous-key') || undefined : undefined,
+          },
+          signal,
+        },
+      );
       setToken(data.token);
+      clearLocalChatCache();
       return data;
     },
     async me(signal) {
@@ -633,6 +748,21 @@ export const apiServices = {
       return apiAuthed<UserProfileDetails>('/api/profile/details', {
         method: 'PUT',
         body: input,
+        signal,
+      });
+    },
+    async lookupAbha(abhaId, signal) {
+      const data = await apiAuthed<{ profile: AbhaProfileDto }>('/api/profile/abha/lookup', {
+        method: 'POST',
+        body: { abhaId },
+        signal,
+      });
+      return data.profile;
+    },
+    async applyAbha(abhaId, signal) {
+      return apiAuthed<{ profile: AbhaProfileDto; details: UserProfileDetails }>('/api/profile/abha/apply', {
+        method: 'POST',
+        body: { abhaId },
         signal,
       });
     },
@@ -765,6 +895,24 @@ export const apiServices = {
     },
     async setAvailability(input, signal) {
       await apiAuthed('/api/professional/availability', { method: 'PATCH', body: input, signal });
+    },
+  },
+  checkIns: <CheckInService>{
+    async themes(signal) {
+      return apiAuthed<CheckInTheme[]>('/api/checkins/themes', { signal });
+    },
+    async list(signal) {
+      return apiAuthed<CheckInDto[]>('/api/checkins', { signal });
+    },
+    async timeline(signal) {
+      const data = await apiAuthed<{ items: TimelineItem[] }>('/api/checkins/timeline', { signal });
+      return data.items;
+    },
+    async create(input, signal) {
+      return apiAuthed<CheckInDto>('/api/checkins', { method: 'POST', body: input, signal });
+    },
+    async uploadVoice(id, wav, signal) {
+      return apiAuthed<CheckInDto>(`/api/checkins/${id}/voice`, { method: 'POST', body: wav, signal });
     },
   },
 };

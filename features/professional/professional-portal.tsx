@@ -21,9 +21,25 @@ type Patient = {
   emotion?: string | null;
   riskLevel?: string | null;
   confidence?: number | null;
+  checkIns?: Array<{
+    id: string;
+    theme: string;
+    text: string;
+    priority?: string | null;
+    distress?: number | null;
+    safetyRisk?: number | null;
+    escalationRisk?: number | null;
+    sentimentLabel?: string | null;
+    stressScore?: number | null;
+    emotionLabel?: string | null;
+    hasVoice: boolean;
+    createdAt: string;
+  }>;
   profile?: {
     location: string;
     abhaId: string;
+    abhaVerified?: boolean;
+    abhaProfile?: Record<string, unknown> | null;
     phone: string;
     gender: string;
     age: number | null;
@@ -642,12 +658,15 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
   const profile = patient.profile;
   const rows: [string, string][] = [
     ['Location', profile?.location || 'Not provided'],
-    ['ABHA ID', profile?.abhaId || 'Not provided'],
+    ['ABHA ID', profile?.abhaId ? `${profile.abhaId}${profile.abhaVerified ? ' · verified' : ''}` : 'Not provided'],
     ['Phone', profile?.phone || 'Not provided'],
     ['Gender', profile?.gender || 'Not provided'],
     ['Age', profile?.age != null ? String(profile.age) : 'Not provided'],
   ];
   if (profile?.email) rows.push(['Email', profile.email]);
+  if (profile?.abhaProfile && typeof profile.abhaProfile.name === 'string') {
+    rows.push(['ABHA name', String(profile.abhaProfile.name)]);
+  }
 
   return (
     <Card className="patient-panel">
@@ -669,12 +688,54 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
             <p className="aria-signal-meta">
               {patient.emotion ? `Emotion: ${patient.emotion}` : null}
               {patient.emotion && patient.riskLevel ? ' · ' : null}
-              {patient.riskLevel ? `Chat risk: ${patient.riskLevel}` : null}
+              {patient.riskLevel ? `Priority/risk: ${patient.riskLevel}` : null}
               {patient.confidence != null ? ` · confidence ${(patient.confidence * 100).toFixed(0)}%` : null}
             </p>
           )}
         </div>
       </div>
+      {patient.checkIns && patient.checkIns.length > 0 && (
+        <div className="patient-checkins">
+          <div className="chart-label">
+            <span>Recent ML check-ins</span>
+            <small>Text/voice assessments</small>
+          </div>
+          <ul className="checkin-pro-list">
+            {patient.checkIns.map((ci) => (
+              <li key={ci.id}>
+                <div>
+                  <b>{ci.theme.replace(/_/g, ' ')}</b>
+                  <small>{new Date(ci.createdAt).toLocaleString()} · {ci.priority ?? '—'} · distress {ci.distress ?? '—'}</small>
+                  {ci.text && <p>{ci.text}</p>}
+                </div>
+                {ci.hasVoice && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const token = typeof window !== 'undefined' ? localStorage.getItem('wellbeing-support:auth-token') : null;
+                      const base = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+                      void fetch(`${base}/api/checkins/${ci.id}/voice`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      })
+                        .then((r) => r.blob())
+                        .then((blob) => {
+                          const url = URL.createObjectURL(blob);
+                          const audio = new Audio(url);
+                          audio.onended = () => URL.revokeObjectURL(url);
+                          void audio.play();
+                        })
+                        .catch(() => undefined);
+                    }}
+                  >
+                    Listen
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="patient-profile-block">
         <div className="chart-label">
           <span>Profile details</span>

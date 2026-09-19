@@ -10,6 +10,7 @@
     "dev:web": "vinext dev",
     "dev:api": "npm run dev --prefix backend",
     "dev:aria": "cd aria-bot && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev:ml": "cd ml-service && python -m uvicorn app.main:app --host 127.0.0.1 --port 8010",
     "dev:all": "npm run dev:api & npm run dev:web",
     "build": "vinext build",
     "build:api": "npm run build --prefix backend",

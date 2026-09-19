@@ -3,6 +3,7 @@ import cors from 'cors';
 import { ZodError } from 'zod';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
+import { checkInRouter } from './routes/checkins.js';
 import { moodRouter } from './routes/mood.js';
 import { journalRouter } from './routes/journal.js';
 import { safetyRouter } from './routes/safety.js';
@@ -42,6 +43,7 @@ export function createApp() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/chat', chatRouter);
+  app.use('/api/checkins', checkInRouter);
   app.use('/api/mood', moodRouter);
   app.use('/api/journal', journalRouter);
   app.use('/api/safety-plan', safetyRouter);

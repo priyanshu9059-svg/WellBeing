@@ -47,6 +47,9 @@ model User {
   /// Optional extended profile (skippable at signup; editable later)
   location             String   @default("")
   abhaId               String   @default("")
+  abhaVerified         Boolean  @default(false)
+  abhaVerifiedAt       DateTime?
+  abhaProfileJson      String   @default("{}")
   phone                String   @default("")
   gender               String   @default("")
   age                  Int?
@@ -61,6 +64,7 @@ model User {
   safetyPlan           SafetyPlan?
   contactConsent       ContactConsent?
   wellbeingSnapshots   WellbeingSnapshot[]
+  checkIns             CheckIn[]
   appointments         Appointment[]       @relation("UserAppointments")
   clinicianAppointments Appointment[]      @relation("ClinicianAppointments")
   counsellorRequests   CounsellorRequest[] @relation("PatientRequests")
@@ -197,6 +201,30 @@ model WellbeingSnapshot {
   answersJson      String   @default("[]")
   createdAt        DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CheckIn {
+  id             String   @id @default(cuid())
+  userId         String
+  theme          String
+  text           String   @default("")
+  transcript     String   @default("")
+  modality       String   @default("TEXT")
+  voicePath      String?
+  voiceMimeType  String?
+  voiceSizeBytes Int?
+  distress       Int?
+  safetyRisk     Float?
+  escalationRisk Int?
+  priority       String?
+  sentimentLabel String?
+  sentimentScore Float?
+  stressScore    Float?
+  emotionLabel   String?
+  factorsJson    String   @default("[]")
+  mlJson         String   @default("{}")
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CarePlace {
