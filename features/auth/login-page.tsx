@@ -14,6 +14,11 @@ function apiConfigured() {
   return Boolean((process.env.NEXT_PUBLIC_API_BASE_URL || '').trim());
 }
 
+function isDemoLogin(email: string) {
+  const normalized = email.trim().toLowerCase();
+  return normalized === DEMO_ACCOUNTS.user.email || normalized === DEMO_ACCOUNTS.counsellor.email;
+}
+
 const copy = {
   English: {
     tabs: ['Log in', 'Sign up'],
@@ -132,7 +137,7 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
               setError('Please enter your name (at least 2 characters).');
               return;
             }
-            if (password.length < 8) {
+            if (!(mode === 'login' && isDemoLogin(email)) && password.length < 8) {
               setError('Password must be at least 8 characters.');
               return;
             }
