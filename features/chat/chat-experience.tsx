@@ -15,45 +15,45 @@ import { newId } from '@/lib/utils';
 
 const chatCopy = {
   English: {
-    title: 'A quiet conversation',
-    subtitle: 'Support companion · not a therapist',
-    welcome: 'I’m here with you. You can ask me anything, or share as much as feels comfortable. What is on your mind?',
+    title: 'Aria',
+    subtitle: 'Your wellbeing companion · not a therapist',
+    welcome: "Hello, I'm Aria — I'm here to listen, without judgment. How have you been feeling today?",
     newConversation: 'New conversation',
     anonymous: 'Anonymous session',
     synced: 'Synced to your account',
     local: 'Stored on this device',
     helpful: 'Was this helpful?',
-    typing: 'Support companion is typing',
+    typing: 'Aria is typing',
     placeholder: 'Type what’s on your mind…',
-    noteApi: 'Support can answer general questions, guide wellbeing steps, and suggest urgent resources, but it cannot diagnose or replace professional care.',
+    noteApi: 'Aria can listen with care, guide wellbeing steps, and surface urgent resources, but cannot diagnose or replace professional care.',
     noteMock: 'Local support can answer common questions, guide wellbeing steps, and suggest urgent resources, but it cannot diagnose or replace professional care.',
   },
   Hindi: {
-    title: 'शांत बातचीत',
-    subtitle: 'सहायक साथी · therapist नहीं',
-    welcome: 'मैं यहां हूं। आप कोई भी सवाल पूछ सकते हैं, या जितना सहज लगे उतना साझा कर सकते हैं। अभी मन में क्या है?',
+    title: 'Aria',
+    subtitle: 'आपका wellbeing companion · therapist नहीं',
+    welcome: 'नमस्ते, मैं Aria हूं — बिना judgment सुनेगी। आज आप कैसा महसूस कर रहे हैं?',
     newConversation: 'नई बातचीत',
     anonymous: 'Anonymous session',
     synced: 'आपके account से synced',
     local: 'इस device पर stored',
     helpful: 'क्या यह helpful था?',
-    typing: 'Support companion लिख रहा है',
+    typing: 'Aria लिख रही है',
     placeholder: 'जो मन में है लिखें…',
-    noteApi: 'Support general questions का जवाब दे सकता है, wellbeing steps guide कर सकता है, और urgent resources suggest कर सकता है, पर diagnosis या professional care का replacement नहीं है।',
+    noteApi: 'Aria ध्यान से सुन सकती है, wellbeing steps guide कर सकती है, और urgent resources suggest कर सकती है, पर diagnosis या professional care का replacement नहीं है।',
     noteMock: 'Local support common questions का जवाब दे सकता है, wellbeing steps guide कर सकता है, और urgent resources suggest कर सकता है, पर diagnosis या professional care का replacement नहीं है।',
   },
   Hinglish: {
-    title: 'Ek quiet conversation',
-    subtitle: 'Support companion · therapist nahi',
-    welcome: 'Main yahan hoon. Aap kuch bhi pooch sakte ho, ya jitna comfortable ho utna share kar sakte ho. Mind mein kya chal raha hai?',
+    title: 'Aria',
+    subtitle: 'Aapka wellbeing companion · therapist nahi',
+    welcome: "Hello, main Aria hoon — bina judgment sunungi. Aaj aap kaisa feel kar rahe ho?",
     newConversation: 'New conversation',
     anonymous: 'Anonymous session',
     synced: 'Account se synced',
     local: 'Is device par stored',
     helpful: 'Ye helpful tha?',
-    typing: 'Support companion type kar raha hai',
+    typing: 'Aria type kar rahi hai',
     placeholder: 'Jo mind mein hai type karo…',
-    noteApi: 'Support general questions answer kar sakta hai, wellbeing steps guide kar sakta hai, aur urgent resources suggest kar sakta hai, par diagnosis ya professional care ka replacement nahi hai.',
+    noteApi: 'Aria carefully sun sakti hai, wellbeing steps guide kar sakti hai, aur urgent resources suggest kar sakti hai, par diagnosis ya professional care ka replacement nahi hai.',
     noteMock: 'Local support common questions answer kar sakta hai, wellbeing steps guide kar sakta hai, aur urgent resources suggest kar sakta hai, par diagnosis ya professional care ka replacement nahi hai.',
   },
 };
@@ -134,7 +134,6 @@ export function ChatExperience() {
     const physicalUrgent = PHYSICAL_URGENT_PHRASES.some((p) => lower.includes(p));
     if (HIGH_RISK_PHRASES.some((p) => lower.includes(p)) && !physicalUrgent) {
       setFlagged(true);
-      return;
     }
     setTyping(true);
     const controller = new AbortController();
@@ -143,6 +142,9 @@ export function ChatExperience() {
       const reply = await services.chat.send(clean, controller.signal, language);
       setMessages((m) => [...m, reply]);
       setSynced(isApiEnabled());
+      if ((reply as ChatMessage & { flagged?: boolean }).flagged || reply.riskLevel === 'crisis') {
+        setFlagged(true);
+      }
     } catch (e) {
       if ((e as Error & { flagged?: boolean }).flagged) {
         setFlagged(true);
@@ -273,6 +275,12 @@ export function ChatExperience() {
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrap ${msg.role} ${msg.urgency === 'urgent' ? 'urgent' : ''}`}>
               <div className="message">{msg.text}</div>
+              {msg.role === 'assistant' && (msg.emotion || msg.riskLevel) && (
+                <div className="aria-meta" aria-label="Conversation signals">
+                  {msg.emotion && <span className={`aria-chip emotion-${msg.emotion}`}>{msg.emotion}</span>}
+                  {msg.riskLevel && <span className={`aria-chip risk-${msg.riskLevel}`}>risk · {msg.riskLevel}</span>}
+                </div>
+              )}
               {msg.role === 'assistant' && msg.choices && msg.choices.length > 0 && (
                 <div className="chat-choices" aria-label="Suggested responses">
                   {msg.choices.map((choice) => (

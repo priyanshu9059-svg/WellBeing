@@ -178,6 +178,9 @@ export type ProfessionalDashboard = {
     last: string;
     consent: string;
     mood: number[];
+    emotion?: string | null;
+    riskLevel?: string | null;
+    confidence?: number | null;
     profile?: PatientProfile;
   }>;
   queries: Array<{ id: string; patient: string; text: string; age: string; priority: string; status: string }>;
@@ -326,12 +329,12 @@ export const apiChatService: ChatService = {
       flagged: boolean;
       assistantMessage: ChatMessage | null;
     }>('/api/chat/send', { method: 'POST', body: { message, language }, signal });
-    if (data.flagged || !data.assistantMessage) {
+    if (!data.assistantMessage) {
       const err = new Error('FLAGGED') as Error & { flagged: boolean };
       err.flagged = true;
       throw err;
     }
-    return data.assistantMessage;
+    return { ...data.assistantMessage, flagged: data.flagged } as ChatMessage & { flagged?: boolean };
   },
   async clear(signal) {
     const data = await apiAuthed<{ messages: ChatMessage[] }>('/api/chat/conversation', {

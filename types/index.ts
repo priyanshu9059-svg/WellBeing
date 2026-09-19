@@ -5,7 +5,20 @@ export interface ChatChoice { label: string; value: string }
 export interface ChatAction { label: string; href: string; tone?: 'primary' | 'danger' | 'secondary' }
 export interface UserSession { id:string; anonymous:boolean; language:Language; createdAt:string }
 export interface AnonymousSession extends UserSession { anonymous:true; displayId:string }
-export interface ChatMessage { id:string; role:'user'|'assistant'; text:string; createdAt:string; feedback?:'helpful'|'not-helpful'; choices?:ChatChoice[]; actions?:ChatAction[]; urgency?:ChatUrgency }
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  createdAt: string;
+  feedback?: 'helpful' | 'not-helpful';
+  choices?: ChatChoice[];
+  actions?: ChatAction[];
+  urgency?: ChatUrgency;
+  emotion?: string;
+  riskLevel?: string;
+  confidence?: number;
+  source?: string;
+}
 export interface Conversation { id:string; title:string; messages:ChatMessage[]; updatedAt:string }
 export interface MoodEntry { id:string; date:string; mood:number; intensity:number; note:string; tags:string[] }
 export interface JournalEntry { id:string; title:string; body:string; mood:string; tags:string[]; date:string; pinned:boolean }

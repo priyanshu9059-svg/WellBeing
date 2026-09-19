@@ -18,7 +18,16 @@ export function screenRisk(text: string): RiskScreen {
   return { flagged: matched.length > 0, physicalUrgent: PHYSICAL_URGENT.some((p) => lower.includes(p)), matched };
 }
 
-export type ChatReply = { text: string; choices: ChatChoice[]; actions: ChatAction[]; urgency: ChatUrgency };
+export type ChatReply = {
+  text: string;
+  choices: ChatChoice[];
+  actions: ChatAction[];
+  urgency: ChatUrgency;
+  emotion?: string;
+  riskLevel?: string;
+  confidence?: number;
+  source?: 'aria' | 'openai' | 'fallback';
+};
 
 const supportChoices: ChatChoice[] = [
   { label: 'Help me understand what I’m feeling', value: 'I want help understanding what I am feeling.' },
