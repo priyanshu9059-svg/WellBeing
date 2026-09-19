@@ -231,8 +231,36 @@ export function ConsultancyHub(){
     .sort((a,b)=>sort==='rating' ? Number(b.rating==='-'?0:b.rating)-Number(a.rating==='-'?0:a.rating) : a.distanceKm-b.distanceKm),[filter,places,query,sort]);
   const selected = visible.find((place) => place.id === selectedId) ?? visible[0] ?? null;
 
-  useEffect(()=>{ setSelected(visible[0] ?? null); },[visible]);
-  useEffect(()=>{ void refreshGooglePlaces(searchArea); },[filter, searchArea]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        if(isApiEnabled()) await ensureSession();
+        const details=services.userProfile.getDetails?await services.userProfile.getDetails():null;
+        const saved=details?.location?.trim()||'';
+        if(cancelled) return;
+        if(saved){
+          setLocation(saved);
+          setActiveLocation(saved);
+          setLocationMessage(`Using your profile location: ${saved}`);
+        }else{
+          const fallback='Indiranagar, Bengaluru';
+          setLocation(fallback);
+          setActiveLocation(fallback);
+        }
+      }catch{
+        if(!cancelled){
+          const fallback='Indiranagar, Bengaluru';
+          setLocation(fallback);
+          setActiveLocation(fallback);
+        }
+      }finally{
+        if(!cancelled) setProfileLocationReady(true);
+      }
+    })();
+    return()=>{cancelled=true};
+  },[]);
+  useEffect(()=>{ if(!profileLocationReady||!searchArea) return; void refreshGooglePlaces(searchArea); },[filter, searchArea, profileLocationReady]);
   useEffect(()=>{ let cancelled=false; async function load(){ if(!isApiEnabled()) return; try{const remote=await services.care.listAppointments(); if(!cancelled&&remote.length) saveAppointments(remote.map(mapAppointment));}catch{} } void load(); return()=>{cancelled=true}; },[]);
 
   async function refreshGooglePlaces(nextLocation=location) {
