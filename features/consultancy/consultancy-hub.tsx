@@ -202,7 +202,7 @@ export function ConsultancyHub(){
   const services = getServices();
   const [view,setView]=useState<'discover'|'appointments'>('discover');
   const [filter,setFilter]=useState<Filter>('All');
-  const [selected,setSelected]=useState<Place|null>(null);
+  const [selectedId,setSelectedId]=useState<string|null>(null);
   const [query,setQuery]=useState('');
   const [location,setLocation]=useState('');
   const [activeLocation,setActiveLocation]=useState('');
@@ -229,8 +229,8 @@ export function ConsultancyHub(){
   const visible=useMemo(()=>places
     .filter(p=>(filter==='All'||p.type===filter)&&`${p.name} ${p.area} ${p.specialties.join(' ')}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a,b)=>sort==='rating' ? Number(b.rating==='-'?0:b.rating)-Number(a.rating==='-'?0:a.rating) : a.distanceKm-b.distanceKm),[filter,places,query,sort]);
+  const selected = visible.find((place) => place.id === selectedId) ?? visible[0] ?? null;
 
-  useEffect(()=>{ setSelected(visible[0] ?? null); },[visible]);
   useEffect(()=>{
     let cancelled=false;
     (async()=>{
@@ -336,7 +336,7 @@ export function ConsultancyHub(){
         <section className="care-map google-care-map" aria-label="Map of nearby services"><iframe title="Map of nearby mental health and safety services" src={mapUrl} loading="lazy" referrerPolicy="no-referrer-when-downgrade"/><div className="map-search-overlay"><div className="search"><Search/><input value={location} onChange={e=>{setLocation(e.target.value);setCoords('')}} onKeyDown={e=>{if(e.key==='Enter')searchMap()}} placeholder="Search map area, e.g. Agra"/></div><button onClick={searchMap}>Search</button></div><div className="map-key google-map-key"><span><i className="clinic-dot"/>Map preview</span><small>Full results are shown beside the map</small></div></section>
         <section className="place-list" aria-label="Nearby services">
           <div className="list-head"><div><p className="kicker">Near {location}</p><h2>{loadingPlaces?'Finding nearby services':`${visible.length} places nearby`}</h2><p className="fine-print" role="status">{placesMessage}</p></div><select aria-label="Sort services" value={sort} onChange={e=>setSort(e.target.value as 'distance'|'rating')}><option value="distance">Nearest first</option>{googleMapsKey&&<option value="rating">Top rated</option>}</select></div>
-          {visible.length?visible.map(p=><article key={p.id} className={`place-card ${selected?.id===p.id?'selected':''}`} onClick={()=>setSelected(p)}>
+          {visible.length?visible.map(p=><article key={p.id} className={`place-card ${selected?.id===p.id?'selected':''}`} onClick={()=>setSelectedId(p.id)}>
             <div className={`place-symbol ${p.type==='Police stations'?'police':p.type==='Trauma support & NGOs'?'ngo':''}`}>{p.type==='Police stations'?<Shield/>:p.type==='Trauma support & NGOs'?<HandHeart/>:p.type==='Hospitals'?<Cross/>:<Stethoscope/>}</div>
             <div className="place-info"><span className="place-type">{p.type} · {p.distance}</span><h3>{p.name}</h3><p><MapPin/> {p.area}</p><p><Clock3/> {p.hours}</p>{p.rating!=='-'&&<p className="rating"><Star/> {p.rating} <span>({p.reviews} Google reviews)</span></p>}<div className="specialty-row">{p.specialties.map(s=><span key={s}>{s}</span>)}</div><div className="place-actions">{p.phone?<a className="btn btn-secondary" href={`tel:${p.phone.replace(/\s/g,'')}`} onClick={e=>e.stopPropagation()}><Phone/>Call</a>:null}{p.website?<a className="btn btn-secondary" target="_blank" rel="noreferrer" href={p.website} onClick={e=>e.stopPropagation()}><ExternalLink/>Website</a>:null}<a className="btn btn-secondary" target="_blank" rel="noreferrer" href={p.mapsUrl} onClick={e=>e.stopPropagation()}><Navigation/>Directions</a>{p.type!=='Police stations'&&p.type!=='Trauma support & NGOs'&&<Button onClick={e=>{e.stopPropagation();setBooking(p);setBooked(false);setBookingError(null)}}>Book appointment</Button>}</div></div><ChevronRight/>
           </article>):<Card className="empty-care"><Search/><h3>{loadingPlaces?'Searching this area...':'No nearby results yet'}</h3><p>{placesMessage}</p></Card>}

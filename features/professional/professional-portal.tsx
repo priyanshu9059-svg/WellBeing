@@ -72,6 +72,8 @@ const API_TO_ROLE: Record<string, Role> = {
   PSYCHIATRIST: 'Psychiatrist',
 };
 
+const DEMO_PROFESSIONAL_EMAIL = 'counsellor@wellbeing.care';
+
 const demoPatients: Patient[] = [
   { id: 'P-2041', name: 'Anonymous 2041', score: 82, level: 'High', signal: 'Distress language increased', last: '8 min ago', consent: 'Care summary + contact', mood: [42, 51, 49, 64, 82], profile: { location: 'Indiranagar, Bengaluru', abhaId: '12-3456-7890-1234', phone: '+91 98765 43210', gender: 'Prefer not to say', age: 22 } },
   { id: 'P-1837', name: 'Mira S.', score: 61, level: 'Elevated', signal: 'Low sleep, persistent worry', last: '22 min ago', consent: 'Care summary', mood: [48, 44, 57, 63, 61], profile: { location: 'Koramangala', abhaId: '', phone: '+91 98000 11223', gender: 'Woman', age: 28 } },
@@ -225,16 +227,17 @@ function ProfessionalAccess({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (mode === 'login') {
-      setEmail((e) => e || 'counsellor@wellbeing.care');
-      setPassword((p) => p || 'prototype');
+  function switchMode(nextMode: 'login' | 'signup') {
+    setMode(nextMode);
+    setError(null);
+    if (nextMode === 'login') {
+      setEmail((current) => current || DEMO_PROFESSIONAL_EMAIL);
+      setPassword((current) => current || 'prototype');
     } else {
       setEmail('');
       setPassword('');
     }
-    setError(null);
-  }, [mode]);
+  }
 
   async function submit() {
     setError(null);
@@ -249,7 +252,8 @@ function ProfessionalAccess({
     setBusy(true);
     try {
       if (mode === 'login') {
-        const result = await services.authentication.signIn(email, password);
+        const loginPassword = email.trim().toLowerCase() === DEMO_PROFESSIONAL_EMAIL ? '' : password;
+        const result = await services.authentication.signIn(email, loginPassword);
         await onEnter(result.user);
       } else {
         const result = await services.authentication.signUp({
@@ -285,8 +289,8 @@ function ProfessionalAccess({
       <Card className="auth-card">
         <Link className="professional-header-link auth-switch" href="/login">USER LOGIN</Link>
         <div className="auth-tabs">
-          <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Log in</button>
-          <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Create account</button>
+          <button className={mode === 'login' ? 'active' : ''} onClick={() => switchMode('login')}>Log in</button>
+          <button className={mode === 'signup' ? 'active' : ''} onClick={() => switchMode('signup')}>Create account</button>
         </div>
         <p className="kicker">{mode === 'login' ? 'Welcome back' : 'Join the care network'}</p>
         <h2>{mode === 'login' ? 'Access your workspace' : 'Professional registration'}</h2>
@@ -338,21 +342,20 @@ function ProfessionalAccess({
               type="button"
               className="demo-account-card"
               onClick={() => {
-                setMode('login');
-                setEmail('counsellor@wellbeing.care');
+                switchMode('login');
+                setEmail(DEMO_PROFESSIONAL_EMAIL);
                 setPassword('prototype');
-                setError(null);
               }}
             >
               <b>Counsellor</b>
-              <span>counsellor@wellbeing.care</span>
+              <span>{DEMO_PROFESSIONAL_EMAIL}</span>
               <small>Fills this form for professional login</small>
             </button>
-            <a className="demo-account-card" href="/login">
+            <Link className="demo-account-card" href="/login">
               <b>User</b>
               <span>user@wellbeing.care</span>
               <small>Open user login / signup page</small>
-            </a>
+            </Link>
           </div>
         </div>
         <p className="auth-note">
@@ -388,27 +391,20 @@ function ProfessionalDashboard({
 }) {
   const services = getServices();
   const [section, setSection] = useState('Overview');
-  const [selected, setSelected] = useState(patients[0] || demoPatients[0]);
+  const [selectedId, setSelectedId] = useState((patients[0] || demoPatients[0]).id);
   const [resolved, setResolved] = useState<string[]>([]);
   const [call, setCall] = useState<Patient | null>(null);
   const [search, setSearch] = useState('');
-  const [apptList, setApptList] = useState(appointments);
-  const [queryList, setQueryList] = useState(queries);
+  const [confirmedAppointmentIds, setConfirmedAppointmentIds] = useState<string[]>([]);
+  const [hiddenQueryIds, setHiddenQueryIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    setApptList(appointments);
-  }, [appointments]);
-
-  useEffect(() => {
-    setQueryList(queries);
-  }, [queries]);
-
-  useEffect(() => {
-    if (patients.length && !patients.find((p) => p.id === selected?.id)) {
-      setSelected(patients[0]);
-    }
-  }, [patients, selected?.id]);
-
+  const selected = patients.find((p) => p.id === selectedId) || patients[0] || demoPatients[0];
+  const apptList = appointments.map((appointment) =>
+    confirmedAppointmentIds.includes(appointment.id)
+      ? { ...appointment, status: 'CONFIRMED' }
+      : appointment,
+  );
+  const queryList = queries.filter((query) => !hiddenQueryIds.includes(query.id));
   const filtered = patients.filter((p) => `${p.name} ${p.id}`.toLowerCase().includes(search.toLowerCase()));
   const openQueryCount = queryList.filter((q) => !resolved.includes(q.id) && q.status !== 'RESOLVED').length;
   const initials = professionalName
@@ -434,7 +430,7 @@ function ProfessionalDashboard({
       try {
         await services.professional.replyQuery(id, reply.trim());
         setResolved((r) => [...r, id]);
-        setQueryList((list) => list.filter((q) => q.id !== id));
+        setHiddenQueryIds((ids) => [...ids, id]);
         await onRefresh();
         return;
       } catch (e) {
@@ -451,7 +447,7 @@ function ProfessionalDashboard({
       try {
         await services.professional.resolveQuery(id);
         setResolved((r) => [...r, id]);
-        setQueryList((list) => list.filter((q) => q.id !== id));
+        setHiddenQueryIds((ids) => [...ids, id]);
         await onRefresh();
         return;
       } catch (e) {
@@ -480,16 +476,14 @@ function ProfessionalDashboard({
     if (isApiEnabled() && !usingDemo) {
       try {
         await services.care.updateAppointment(id, 'Confirmed');
-        setApptList((list) =>
-          list.map((a) => (a.id === id ? { ...a, status: 'CONFIRMED' } : a)),
-        );
+        setConfirmedAppointmentIds((ids) => [...ids, id]);
         await onRefresh();
       } catch (e) {
         window.alert(e instanceof Error ? e.message : 'Could not confirm appointment.');
       }
       return;
     }
-    setApptList((list) => list.map((a) => (a.id === id ? { ...a, status: 'CONFIRMED' } : a)));
+    setConfirmedAppointmentIds((ids) => [...ids, id]);
   }
 
   return (
@@ -539,12 +533,12 @@ function ProfessionalDashboard({
             metrics={metrics}
             patients={patients}
             selected={selected}
-            setSelected={setSelected}
+            setSelected={(patient) => setSelectedId(patient.id)}
             setCall={setCall}
           />
         )}
         {section === 'Care queue' && (
-          <CareQueue patients={filtered} selected={selected} setSelected={setSelected} setCall={setCall} />
+          <CareQueue patients={filtered} selected={selected} setSelected={(patient) => setSelectedId(patient.id)} setCall={setCall} />
         )}
         {section === 'Queries' && (
           <QueryCenter
