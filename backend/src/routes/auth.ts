@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, signToken, type AuthedRequest } from '../lib/auth.js';
+import { notificationService } from '../services/notification_service.js';
 
 export const authRouter = Router();
 
@@ -114,7 +115,8 @@ authRouter.post('/signin', async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Invalid email or password.' });
 
     await audit(user.id, 'auth.signin');
-    res.json({ token: signToken(user), user: publicUser(user) });
+    const notificationStatus = await notificationService.notifySignIn(user.id);
+    res.json({ token: signToken(user), user: publicUser(user), notificationStatus });
   } catch (e) {
     next(e);
   }

@@ -27,9 +27,9 @@ async function main() {
 
   const counsellor = await prisma.user.create({
     data: {
-      email: 'counsellor@wellbeing.care',
+      email: 'priyanshuthat@gmail.com',
       passwordHash,
-      displayName: 'Dr. Aditi Sharma',
+      displayName: 'Priyanshu',
       role: Role.COUNSELLOR,
       anonymous: false,
       licenceNumber: 'MH-CARE-001',
@@ -224,8 +224,8 @@ async function main() {
   });
 
   console.log('Seed complete.');
-  console.log('Demo user:        user@wellbeing.care / prototype');
-  console.log('Demo counsellor:  counsellor@wellbeing.care / prototype');
+  console.log('Demo user:        kumkumsingh17122005@gmail.com / prototype');
+  console.log('Demo counsellor:  priyanshuthat@gmail.com / prototype');
   console.log('Legacy counsellor: demo@wellbeing.care / prototype');
   console.log('Org codes: CAMPUS-DEMO, TEAM-CARE');
 }

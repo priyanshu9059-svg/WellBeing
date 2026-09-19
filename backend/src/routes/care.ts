@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppointmentStatus, QueryPriority, QueryStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, requireRole, type AuthedRequest } from '../lib/auth.js';
+import { notificationService } from '../services/notification_service.js';
 
 export const careRouter = Router();
 
@@ -61,23 +62,53 @@ careRouter.post('/appointments', requireAuth, async (req: AuthedRequest, res, ne
         placeId: z.string().optional(),
         placeName: z.string(),
         clinician: z.string().default('Available care professional'),
+        clinicianId: z.string().optional(),
+        clinicianEmail: z.string().optional(),
         date: z.string(),
         time: z.string(),
         mode: z.string(),
       })
       .parse(req.body);
+
+    let placeId: string | undefined;
+    if (body.placeId) {
+      const place = await prisma.carePlace.findUnique({ where: { id: body.placeId } });
+      if (place) placeId = place.id;
+    }
+
+    let clinicianId: string | undefined = body.clinicianId ?? undefined;
+    let clinician = body.clinician ?? 'Available care professional';
+    if (!clinicianId && (body.clinician || body.clinicianEmail)) {
+      const match = await prisma.user.findFirst({
+        where: {
+          role: { in: [...proRoles] },
+          ...(body.clinician ? { displayName: body.clinician } : {}),
+          ...(body.clinicianEmail ? { email: body.clinicianEmail } : {}),
+        },
+      });
+      if (match) {
+        clinicianId = match.id;
+        clinician = match.displayName ?? clinician;
+      }
+    }
+
     const appt = await prisma.appointment.create({
       data: {
         userId: req.user!.id,
-        placeId: body.placeId,
+        placeId,
         placeName: body.placeName,
-        clinician: body.clinician,
+        clinician,
+        clinicianId,
         date: body.date,
         time: body.time,
         mode: body.mode,
         status: AppointmentStatus.CONFIRMED,
       },
     });
+
+    // Database-First: Send notifications AFTER appointment creation succeeds
+    const notificationStatus = await notificationService.notifyAppointmentCreated(appt.id);
+
     res.status(201).json({
       id: appt.id,
       place: appt.placeName,
@@ -86,6 +117,7 @@ careRouter.post('/appointments', requireAuth, async (req: AuthedRequest, res, ne
       time: appt.time,
       mode: appt.mode,
       status: 'Confirmed',
+      notificationStatus,
     });
   } catch (e) {
     next(e);
@@ -103,9 +135,10 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
       Cancelled: AppointmentStatus.CANCELLED,
       Requested: AppointmentStatus.REQUESTED,
     };
+    const targetId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const existing = await prisma.appointment.findFirst({
       where: {
-        id: req.params.id,
+        id: targetId,
         OR: [{ userId: req.user!.id }, { clinicianId: req.user!.id }],
       },
     });
@@ -114,6 +147,14 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
       where: { id: existing.id },
       data: { status: map[body.status] },
     });
+
+    // Trigger notification on appointment status update
+    const notificationStatus = await notificationService.notifyAppointmentUpdated(
+      appt.id,
+      existing.status,
+      map[body.status]
+    );
+
     res.json({
       id: appt.id,
       status:
@@ -124,6 +165,7 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
             : appt.status === 'CANCELLED'
               ? 'Cancelled'
               : 'Requested',
+      notificationStatus,
     });
   } catch (e) {
     next(e);
@@ -131,6 +173,29 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
 });
 
 const proRoles = [Role.COUNSELLOR, Role.PSYCHOLOGIST, Role.PSYCHIATRIST, Role.ORG_ADMIN] as const;
+
+professionalRouter.get('/notifications', async (req: AuthedRequest, res, next) => {
+  try {
+    const rows = await prisma.notification.findMany({
+      where: { userId: req.user!.id, channel: 'EMAIL' },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        to: true,
+        notificationType: true,
+        subject: true,
+        body: true,
+        status: true,
+        providerMessageId: true,
+        createdAt: true,
+      },
+    });
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
 
 export const professionalRouter = Router();
 professionalRouter.use(requireAuth, requireRole(...proRoles));
@@ -312,9 +377,10 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
 
 professionalRouter.post('/queries/:id/reply', async (req: AuthedRequest, res, next) => {
   try {
+    const queryId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const body = z.object({ reply: z.string().min(1) }).parse(req.body);
     const query = await prisma.patientQuery.update({
-      where: { id: req.params.id },
+      where: { id: queryId },
       data: {
         reply: body.reply,
         status: QueryStatus.RESOLVED,
@@ -330,8 +396,9 @@ professionalRouter.post('/queries/:id/reply', async (req: AuthedRequest, res, ne
 
 professionalRouter.post('/queries/:id/resolve', async (req: AuthedRequest, res, next) => {
   try {
+    const queryId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const query = await prisma.patientQuery.update({
-      where: { id: req.params.id },
+      where: { id: queryId },
       data: { status: QueryStatus.RESOLVED, responderId: req.user!.id },
     });
     await audit(req.user!.id, 'professional.query_resolve', { queryId: query.id });

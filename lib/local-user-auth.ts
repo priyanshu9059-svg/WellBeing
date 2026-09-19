@@ -103,8 +103,8 @@ export function signOutLocalUser() {
 export async function ensureLocalDemoAccounts() {
   if (typeof window === 'undefined') return;
   const demos = [
-    { displayName: 'Demo User', identifier: 'user@wellbeing.care', password: 'prototype' },
-    { displayName: 'Dr. Aditi Sharma', identifier: 'counsellor@wellbeing.care', password: 'prototype' },
+    { displayName: 'Demo User', identifier: 'kumkumsingh17122005@gmail.com', password: 'prototype' },
+    { displayName: 'Priyanshu', identifier: 'priyanshuthat@gmail.com', password: 'prototype' },
   ] as const;
 
   const accounts = loadAccounts();
@@ -127,6 +127,6 @@ export async function ensureLocalDemoAccounts() {
 }
 
 export const DEMO_ACCOUNTS = {
-  user: { email: 'user@wellbeing.care', password: 'prototype', label: 'Demo user' },
-  counsellor: { email: 'counsellor@wellbeing.care', password: 'prototype', label: 'Demo counsellor' },
+  user: { email: 'kumkumsingh17122005@gmail.com', password: 'prototype', label: 'Demo user' },
+  counsellor: { email: 'priyanshuthat@gmail.com', password: 'prototype', label: 'Demo counsellor' },
 } as const;

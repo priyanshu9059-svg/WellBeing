@@ -201,7 +201,7 @@ function ProfessionalAccess({
   onEnter: (user?: AuthUser | null) => void | Promise<void>;
 }) {
   const services = getServices();
-  const [email, setEmail] = useState(mode === 'login' ? 'counsellor@wellbeing.care' : '');
+  const [email, setEmail] = useState(mode === 'login' ? 'priyanshuthat@gmail.com' : '');
   const [password, setPassword] = useState(mode === 'login' ? 'prototype' : '');
   const [displayName, setDisplayName] = useState('');
   const [licenceNumber, setLicenceNumber] = useState('');
@@ -211,7 +211,7 @@ function ProfessionalAccess({
 
   useEffect(() => {
     if (mode === 'login') {
-      setEmail((e) => e || 'counsellor@wellbeing.care');
+      setEmail((e) => e || 'priyanshuthat@gmail.com');
       setPassword((p) => p || 'prototype');
     } else {
       setEmail('');
@@ -323,18 +323,18 @@ function ProfessionalAccess({
               className="demo-account-card"
               onClick={() => {
                 setMode('login');
-                setEmail('counsellor@wellbeing.care');
+                setEmail('priyanshuthat@gmail.com');
                 setPassword('prototype');
                 setError(null);
               }}
             >
               <b>Counsellor</b>
-              <span>counsellor@wellbeing.care</span>
+              <span>priyanshuthat@gmail.com</span>
               <small>Fills this form for professional login</small>
             </button>
             <a className="demo-account-card" href="/login">
               <b>User</b>
-              <span>user@wellbeing.care</span>
+              <span>kumkumsingh17122005@gmail.com</span>
               <small>Open user login / signup page</small>
             </a>
           </div>

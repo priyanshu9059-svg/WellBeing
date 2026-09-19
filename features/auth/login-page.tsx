@@ -61,11 +61,13 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const text = copy[language];
   const index = mode === 'login' ? 0 : 1;
 
   useEffect(() => {
+    setMounted(true);
     void ensureLocalDemoAccounts();
   }, []);
 
@@ -95,6 +97,12 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
             </span>
           </label>
         )}
+        {!mounted ? (
+          <div className="field field-hydration-placeholder" aria-hidden="true">
+            <span>Account sign-in fields load below…</span>
+          </div>
+        ) : (
+          <>
         <label className="field">
           <span>{text.email}</span>
           <span className="input-icon">
@@ -114,6 +122,8 @@ export function LoginPage({ defaultMode = 'login' }: { defaultMode?: 'login' | '
             />
           </span>
         </label>
+          </>
+        )}
         {mode === 'signup' && (
           <label className="check">
             <input type="checkbox" defaultChecked />

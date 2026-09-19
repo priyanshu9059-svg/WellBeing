@@ -8,6 +8,7 @@ import { Check, IdCard, MapPin, Phone, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ensureSession, isApiEnabled } from '@/lib/api';
+import { getCurrentLocalUser } from '@/lib/local-user-auth';
 import { getServices, type UserProfileDetails } from '@/services';
 
 const GENDERS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say', 'Self-describe'] as const;
@@ -32,6 +33,7 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [account, setAccount] = useState<{ name?: string; email?: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +57,15 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
             setForm((f) => ({ ...f, gender: 'Self-describe' }));
           }
         }
+        let identity: { name?: string; email?: string } | null = null;
+        if (isApiEnabled()) {
+          const me = await services.authentication.me();
+          if (me) identity = { name: me.displayName ?? undefined, email: me.email ?? undefined };
+        } else {
+          const local = getCurrentLocalUser();
+          if (local) identity = { name: local.displayName, email: local.identifier };
+        }
+        if (!cancelled && identity) setAccount(identity);
       } catch {
         /* keep empty */
       } finally {
@@ -121,6 +132,12 @@ export function ProfileDetailsPage({ mode = 'edit' }: { mode?: Mode }) {
         </div>
         <p className="kicker">{mode === 'complete' ? 'Almost there · optional' : 'Your profile'}</p>
         <h2>{mode === 'complete' ? 'Add a few details if you want' : 'Edit your profile details'}</h2>
+        {account && (
+          <p className="signed-in-row fine-print">
+            <UserRound size={14} /> Signed in as <b>{account.name || account.email}</b>
+            {account.name && account.email ? ` · ${account.email}` : ''}
+          </p>
+        )}
         <p>
           Location, ABHA ID, phone, gender, and age help counsellors support you better when you consent to share.
           None of these fields are required{mode === 'complete' ? ' — you can skip and fill them later' : ''}.

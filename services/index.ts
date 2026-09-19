@@ -90,7 +90,19 @@ export interface ProfessionalService {
   replyQuery(id: string, reply: string, signal?: AbortSignal): Promise<void>;
   resolveQuery(id: string, signal?: AbortSignal): Promise<void>;
   setAvailability(input: { available?: boolean; acceptPriority?: boolean }, signal?: AbortSignal): Promise<void>;
+  notifications?(signal?: AbortSignal): Promise<EmailNotificationLog[]>;
 }
+
+export type EmailNotificationLog = {
+  id: string;
+  to: string;
+  notificationType: string;
+  subject: string | null;
+  body: string | null;
+  status: string;
+  providerMessageId: string | null;
+  createdAt: string;
+};
 
 export type AuthUser = {
   id: string;
@@ -765,6 +777,9 @@ export const apiServices = {
     },
     async setAvailability(input, signal) {
       await apiAuthed('/api/professional/availability', { method: 'PATCH', body: input, signal });
+    },
+    async notifications(signal) {
+      return apiAuthed<EmailNotificationLog[]>('/api/professional/notifications', { signal });
     },
   },
 };
