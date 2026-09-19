@@ -135,6 +135,7 @@ export function TrustPage() {
   );
 }
 
+
 export function SettingsPage() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -168,6 +169,7 @@ export function SettingsPage() {
         setStoredCount(0);
       }
     }
+
     refreshStoredCount();
     getServices()
       .userProfile.getDetails?.()
