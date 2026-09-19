@@ -2,22 +2,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, Camera, Check, CircleHelp, ClipboardList, Download, FileText, History, IdCard, Leaf, LogOut, MessageCircle, Phone, Shield, UserRound } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Camera, CircleHelp, Leaf, MessageCircle, Phone, Shield } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { crisisResources } from '@/config/crisis-resources';
 import { features } from '@/config/features';
 import { LanguageSelect, useLanguage } from '@/components/language-provider';
 import { getServices, type UserProfileDetails } from '@/services';
 import { isApiEnabled } from '@/lib/api';
-import { downloadJson } from '@/lib/utils';
-import { signOutLocalUser } from '@/lib/local-user-auth';
-const tools=[
-  {href:'/check-in',title:'Wellbeing check-in',copy:'Write or speak about threats, court stress, isolation, or rehab challenges. ML scores support counsellor review.',icon:ClipboardList},
-  {href:'/history',title:'Your history',copy:'See past check-ins, voice notes, scores, and counsellor appointments on one timeline.',icon:History},
-  {href:'/wellbeing',title:'Wellbeing conversation',copy:'Talk by voice, type a message, or open a camera-based avatar call.',icon:MessageCircle},
-  {href:'/exercises',title:'Guided exercises',copy:'Try breathing, grounding, self-compassion, or a next step.',icon:Leaf},
-  {href:'/safety-plan',title:'Personal safety plan',copy:'Prepare supportive steps, people, places, and resources.',icon:Shield},
-];
+const tools=[{href:'/wellbeing',title:'Wellbeing conversation',copy:'Talk by voice, type a message, or open a camera-based avatar call.',icon:MessageCircle},{href:'/exercises',title:'Guided exercises',copy:'Try breathing, grounding, self-compassion, or a next step.',icon:Leaf},{href:'/safety-plan',title:'Personal safety plan',copy:'Prepare supportive steps, people, places, and resources.',icon:Shield}];
 export function SupportHome(){return <div><div className="support-intro"><Card className="featured-support"><p className="kicker">If talking feels possible</p><h2>Begin with your voice.</h2><p>You do not need to explain everything. The support companion can start as an audio conversation and move at your pace.</p><Link className="btn btn-primary" href="/wellbeing">Open wellbeing conversation <ArrowRight/></Link></Card><Card className="pause-card"><span className="pause-visual">◌</span><div><p className="kicker">If words feel difficult</p><h2>Take a two-minute pause.</h2><Link href="/exercises">Try box breathing →</Link></div></Card></div><section><div className="section-heading"><p className="kicker">Choose what fits this moment</p><h2>Support tools</h2></div><div className="tool-grid">{tools.map(t=><Link href={t.href} key={t.href} className="tool-card"><span className="soft-icon"><t.icon/></span><h3>{t.title}</h3><p>{t.copy}</p><b>Open tool <ArrowRight/></b></Link>)}</div></section></div>}
 export function CrisisPage(){
   const [note,setNote]=useState('');
