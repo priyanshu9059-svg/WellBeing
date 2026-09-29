@@ -96,6 +96,31 @@ export async function sendAriaMessage(sessionId: string, message: string): Promi
   };
 }
 
+/** Send a message; if Aria lost the in-memory session, start a fresh one and retry once. */
+export async function sendAriaMessageResilient(
+  sessionId: string | null | undefined,
+  message: string,
+): Promise<AriaMessageResult & { sessionId: string }> {
+  let activeId = sessionId?.trim() || '';
+  if (!activeId) {
+    const started = await startAriaSession();
+    activeId = started.sessionId;
+  }
+
+  try {
+    const result = await sendAriaMessage(activeId, message);
+    return { ...result, sessionId: activeId };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    const lostSession = /Aria 404|not found|Session/i.test(detail);
+    if (!lostSession) throw err;
+
+    const started = await startAriaSession();
+    const result = await sendAriaMessage(started.sessionId, message);
+    return { ...result, sessionId: started.sessionId };
+  }
+}
+
 export async function deleteAriaSession(sessionId: string): Promise<void> {
   try {
     await ariaFetch(`/chat/${sessionId}`, { method: 'DELETE' });

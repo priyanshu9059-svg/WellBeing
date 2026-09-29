@@ -46,28 +46,52 @@ wellbeingRouter.post('/risk-screen', async (req: AuthedRequest, res, next) => {
   }
 });
 
-wellbeingRouter.post('/voice/transcribe', express.raw({ type: ['audio/*', 'video/*', 'application/octet-stream'], limit: '25mb' }), async (req: AuthedRequest, res, next) => {
+wellbeingRouter.post('/voice/transcribe', express.raw({ type: () => true, limit: '25mb' }), async (req: AuthedRequest, res, next) => {
   try {
     const audio = Buffer.isBuffer(req.body) ? req.body : null;
     if (!audio?.length) return res.status(400).json({ error: 'Recorded audio is required.' });
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (apiKey) {
-      const form = new FormData();
-      form.append('file', new Blob([new Uint8Array(audio).buffer as ArrayBuffer], { type: req.headers['content-type'] || 'audio/webm' }), 'voice.webm');
-      form.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe');
-      const upstream = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: form,
-      });
-      if (upstream.ok) {
-        const data = (await upstream.json()) as { text?: string };
-        if (data.text?.trim()) return res.json({ transcript: data.text.trim(), provider: 'openai' });
+      const mime = String(req.headers['content-type'] || 'audio/webm').split(';')[0] || 'audio/webm';
+      const ext = mime.includes('wav') ? 'wav' : mime.includes('mp4') ? 'mp4' : mime.includes('mpeg') ? 'mp3' : 'webm';
+      const models = [
+        process.env.OPENAI_TRANSCRIPTION_MODEL?.trim(),
+        'whisper-1',
+        'gpt-4o-mini-transcribe',
+      ].filter((m, i, arr): m is string => Boolean(m) && arr.indexOf(m) === i);
+
+      for (const model of models) {
+        try {
+          const form = new FormData();
+          form.append('file', new Blob([new Uint8Array(audio)], { type: mime }), `voice.${ext}`);
+          form.append('model', model);
+          const upstream = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: form,
+          });
+          if (!upstream.ok) {
+            const detail = await upstream.text().catch(() => '');
+            console.warn(`OpenAI transcribe failed (${model}):`, upstream.status, detail.slice(0, 200));
+            continue;
+          }
+          const data = (await upstream.json()) as { text?: string };
+          if (data.text?.trim()) {
+            return res.json({ transcript: data.text.trim(), provider: 'openai', model });
+          }
+        } catch (err) {
+          console.warn(`OpenAI transcribe error (${model}):`, (err as Error).message);
+        }
       }
     }
+
+    // No silent fake transcript — client uses browser speech / typed text instead.
     res.json({
-      transcript: 'I have been feeling overwhelmed lately, and I would like someone to listen.',
-      provider: 'local-fallback',
+      transcript: '',
+      provider: apiKey ? 'openai-failed' : 'none',
+      message: apiKey
+        ? 'Cloud transcription failed. Browser speech or typed text can still be used.'
+        : 'Set OPENAI_API_KEY for cloud transcription. Browser speech recognition is used when available.',
     });
   } catch (e) {
     next(e);

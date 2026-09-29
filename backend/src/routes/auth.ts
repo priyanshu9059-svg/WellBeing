@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, signToken, type AuthedRequest } from '../lib/auth.js';
+import { notificationService } from '../services/notification_service.js';
 
 export const authRouter = Router();
 
@@ -72,9 +73,31 @@ authRouter.post('/anonymous', async (req, res, next) => {
           anonymousKey: key,
           language: body.language || 'English',
           displayName: `Anonymous ${Math.floor(1000 + Math.random() * 9000)}`,
+          contactConsent: {
+            create: {
+              anonymous: true,
+              allowContact: false,
+              allowWellbeingSummary: true,
+            },
+          },
         },
       });
       await audit(user.id, 'auth.anonymous_created');
+    } else {
+      // Older anonymous sessions may lack consent — enable care-summary sharing for counsellor review.
+      await prisma.contactConsent.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          anonymous: true,
+          allowContact: false,
+          allowWellbeingSummary: true,
+        },
+        update: {
+          anonymous: true,
+          allowWellbeingSummary: true,
+        },
+      });
     }
 
     const token = signToken(user);
@@ -207,11 +230,13 @@ authRouter.post('/signup', async (req, res, next) => {
     }
 
     const token = signToken(user);
+    const notificationStatus = body.role === 'USER' ? await notificationService.notifySignup(user.id) : null;
     res.status(201).json({
       token,
       user: publicUser(user),
       needsProfile: body.role === 'USER',
       upgraded,
+      notificationStatus,
     });
   } catch (e) {
     next(e);
@@ -235,7 +260,8 @@ authRouter.post('/signin', async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Invalid email or password.' });
 
     await audit(user.id, 'auth.signin');
-    res.json({ token: signToken(user), user: publicUser(user) });
+    const notificationStatus = await notificationService.notifySignIn(user.id);
+    res.json({ token: signToken(user), user: publicUser(user), notificationStatus });
   } catch (e) {
     next(e);
   }

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Activity, Bell, CalendarDays, Check, ChevronRight, ClipboardCheck, Clock3, FileText, Headphones, LockKeyhole, LogOut, MessageSquareText, Phone, Search, ShieldCheck, UsersRound, Video, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ThemeResolutionPanel } from '@/components/theme-resolution-panel';
 import { isApiEnabled } from '@/lib/api';
 import { getServices, type AuthUser, type ProfessionalDashboard } from '@/services';
 
@@ -12,6 +13,7 @@ type Role = 'Counsellor' | 'Psychologist' | 'Psychiatrist';
 type Patient = {
   id: string;
   name: string;
+  anonymous?: boolean;
   score: number;
   level: string;
   signal: string;
@@ -30,9 +32,23 @@ type Patient = {
     safetyRisk?: number | null;
     escalationRisk?: number | null;
     sentimentLabel?: string | null;
+    sentimentScore?: number | null;
     stressScore?: number | null;
     emotionLabel?: string | null;
     hasVoice: boolean;
+    factors?: string[];
+    emotions?: Record<string, number>;
+    recommendations?: string[];
+    signals?: Record<string, boolean>;
+    method?: string | null;
+    fallback?: boolean;
+    createdAt: string;
+  }>;
+  videoRecordings?: Array<{
+    id: string;
+    filename: string;
+    sizeBytes: number;
+    mimeType: string;
     createdAt: string;
   }>;
   profile?: {
@@ -116,20 +132,47 @@ function mapDashboard(data: ProfessionalDashboard) {
   };
 }
 
+const PRO_API_ROLES = new Set(['COUNSELLOR', 'PSYCHOLOGIST', 'PSYCHIATRIST', 'ORG_ADMIN']);
+
 export function ProfessionalPortal() {
   const services = getServices();
-  const [signedIn, setSignedIn] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [role, setRole] = useState<Role>('Counsellor');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dashboard, setDashboard] = useState<ReturnType<typeof mapDashboard> | null>(null);
-  const [usingDemo, setUsingDemo] = useState(true);
+  const [usingDemo, setUsingDemo] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!dashboard) void loadDashboard(role, user?.displayName);
-  }, [dashboard, role, user?.displayName]);
+    let cancelled = false;
+    (async () => {
+      if (!isApiEnabled()) {
+        if (!cancelled) setBootstrapping(false);
+        return;
+      }
+      try {
+        const me = await services.authentication.me();
+        if (cancelled) return;
+        if (me && PRO_API_ROLES.has(me.role)) {
+          setUser(me);
+          setSignedIn(true);
+          await loadDashboard(API_TO_ROLE[me.role] || 'Counsellor', me.displayName);
+        }
+      } catch {
+        /* stay on login */
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function loadDashboard(fallbackRole: Role, fallbackName?: string | null) {
+    setLoadError(null);
     if (!isApiEnabled()) {
       setUsingDemo(true);
       setDashboard({
@@ -147,23 +190,32 @@ export function ProfessionalPortal() {
       setDashboard(mapDashboard(data));
       setUsingDemo(false);
       if (API_TO_ROLE[data.professional.role]) setRole(API_TO_ROLE[data.professional.role]);
-    } catch {
-      setUsingDemo(true);
-      setDashboard({
-        professionalName: fallbackName || 'Dr. Aditi Sharma',
-        role: fallbackRole,
-        metrics: demoMetrics,
-        patients: demoPatients,
-        queries: demoQueries,
-        appointments: demoAppointments,
-      });
+    } catch (e) {
+      const message =
+        e instanceof Error
+          ? e.message
+          : 'Could not load the care dashboard. Sign in with a counsellor account.';
+      setLoadError(message);
+      setUsingDemo(false);
+      setDashboard(null);
+      setSignedIn(false);
+      setUser(null);
     }
   }
 
   async function handleEnter(authUser?: AuthUser | null) {
+    if (authUser && !PRO_API_ROLES.has(authUser.role)) {
+      setLoadError('This account is a patient profile. Sign in with counsellor@wellbeing.care (or another professional account) to see real check-ins and scores.');
+      setSignedIn(false);
+      setDashboard(null);
+      return;
+    }
     setUser(authUser ?? null);
     setSignedIn(true);
-    await loadDashboard(role, authUser?.displayName);
+    await loadDashboard(
+      authUser ? API_TO_ROLE[authUser.role] || role : role,
+      authUser?.displayName,
+    );
   }
 
   async function handleSignOut() {
@@ -175,7 +227,19 @@ export function ProfessionalPortal() {
     setSignedIn(false);
     setUser(null);
     setDashboard(null);
-    setUsingDemo(true);
+    setUsingDemo(false);
+    setLoadError(null);
+  }
+
+  if (bootstrapping) {
+    return (
+      <div className="professional-access">
+        <Card className="access-card">
+          <p className="kicker">Professional portal</p>
+          <h2>Checking your session…</h2>
+        </Card>
+      </div>
+    );
   }
 
   if (!signedIn || !dashboard) {
@@ -186,6 +250,7 @@ export function ProfessionalPortal() {
         role={role}
         setRole={setRole}
         onEnter={handleEnter}
+        loadError={loadError}
       />
     );
   }
@@ -211,12 +276,14 @@ function ProfessionalAccess({
   role,
   setRole,
   onEnter,
+  loadError,
 }: {
   mode: 'login' | 'signup';
   setMode: (v: 'login' | 'signup') => void;
   role: Role;
   setRole: (r: Role) => void;
   onEnter: (user?: AuthUser | null) => void | Promise<void>;
+  loadError?: string | null;
 }) {
   const services = getServices();
   const [email, setEmail] = useState(mode === 'login' ? 'counsellor@wellbeing.care' : '');
@@ -284,7 +351,7 @@ function ProfessionalAccess({
           <span><Headphones />Secure call workspace</span>
           <span><ClipboardCheck />Clear follow-up updates</span>
         </div>
-        <p className="portal-disclaimer">Prototype only · No real patient or clinical data</p>
+        <p className="portal-disclaimer">Sign in as a counsellor to load live consented patient profiles and check-in scores</p>
       </section>
       <Card className="auth-card">
         <Link className="professional-header-link auth-switch" href="/login">USER LOGIN</Link>
@@ -329,9 +396,13 @@ function ProfessionalAccess({
           </>
         )}
         {error && <p className="error-text">{error}</p>}
+        {loadError && !error && <p className="error-text">{loadError}</p>}
         <Button className="auth-submit" onClick={submit} disabled={busy}>
           {busy ? 'Please wait…' : mode === 'login' ? (isApiEnabled() ? 'Sign in' : 'Open demo dashboard') : isApiEnabled() ? 'Create account' : 'Create prototype account'} <ChevronRight />
         </Button>
+        <p className="fine-print" style={{ marginTop: 12 }}>
+          To see real signed-up patients and ML scores, sign in here as a counsellor (not with a patient account). Demo: <b>counsellor@wellbeing.care</b> / <b>prototype</b>.
+        </p>
         <div className="demo-account-box">
           <p className="kicker">Demo accounts</p>
           <p className="fine-print" style={{ marginBottom: 10 }}>
@@ -391,14 +462,20 @@ function ProfessionalDashboard({
 }) {
   const services = getServices();
   const [section, setSection] = useState('Overview');
-  const [selectedId, setSelectedId] = useState((patients[0] || demoPatients[0]).id);
+  const [selectedId, setSelectedId] = useState(patients[0]?.id ?? '');
   const [resolved, setResolved] = useState<string[]>([]);
   const [call, setCall] = useState<Patient | null>(null);
   const [search, setSearch] = useState('');
   const [confirmedAppointmentIds, setConfirmedAppointmentIds] = useState<string[]>([]);
   const [hiddenQueryIds, setHiddenQueryIds] = useState<string[]>([]);
 
-  const selected = patients.find((p) => p.id === selectedId) || patients[0] || demoPatients[0];
+  useEffect(() => {
+    if (!patients.some((p) => p.id === selectedId)) {
+      setSelectedId(patients[0]?.id ?? '');
+    }
+  }, [patients, selectedId]);
+
+  const selected = patients.find((p) => p.id === selectedId) || patients[0] || null;
   const apptList = appointments.map((appointment) =>
     confirmedAppointmentIds.includes(appointment.id)
       ? { ...appointment, status: 'CONFIRMED' }
@@ -528,17 +605,48 @@ function ProfessionalDashboard({
             <button className="notification" aria-label="Open queries" title="Open queries" onClick={() => setSection('Queries')}><Bell /><span>{Math.min(openQueryCount, 9)}</span></button>
           </div>
         </header>
+        <div className={`demo-banner ${usingDemo ? '' : 'live-banner'}`} style={{ margin: '0 0 16px' }}>
+          <div>
+            <b>{usingDemo ? 'Sample demo patients' : 'Live patient queue'}</b>
+            <p>
+              {usingDemo
+                ? 'API is offline — showing prototype sample cards only.'
+                : `${patients.length} real account${patients.length === 1 ? '' : 's'} with profile details and/or check-in scores.`}
+            </p>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={() => void onRefresh()}>Refresh</button>
+        </div>
+        {!usingDemo && patients.length === 0 && (
+          <Card className="empty-state" style={{ marginBottom: 16, padding: 24 }}>
+            <h2>No patients in the queue yet</h2>
+            <p>Registered users appear here after they save profile details or complete a check-in.</p>
+          </Card>
+        )}
         {section === 'Overview' && (
-          <Overview
-            metrics={metrics}
-            patients={patients}
-            selected={selected}
-            setSelected={(patient) => setSelectedId(patient.id)}
-            setCall={setCall}
-          />
+          selected ? (
+            <Overview
+              metrics={metrics}
+              patients={patients}
+              selected={selected}
+              setSelected={(patient) => setSelectedId(patient.id)}
+              setCall={setCall}
+            />
+          ) : (
+            <Card className="empty-state" style={{ padding: 24 }}>
+              <h2>No patients to review</h2>
+              <p>Once someone signs up and saves profile details or completes a check-in, they show up here with scores.</p>
+            </Card>
+          )
         )}
         {section === 'Care queue' && (
-          <CareQueue patients={filtered} selected={selected} setSelected={(patient) => setSelectedId(patient.id)} setCall={setCall} />
+          selected ? (
+            <CareQueue patients={filtered} selected={selected} setSelected={(patient) => setSelectedId(patient.id)} setCall={setCall} />
+          ) : (
+            <Card className="empty-state" style={{ padding: 24 }}>
+              <h2>Care queue is empty</h2>
+              <p>Ask the person to sign up, save profile details, or submit a check-in — then hit Refresh.</p>
+            </Card>
+          )
         )}
         {section === 'Queries' && (
           <QueryCenter
@@ -566,6 +674,157 @@ function RiskBadge({ patient }: { patient: Patient }) {
     <div className={`risk-score risk-${patient.level.toLowerCase()}`}>
       <b>{patient.score}</b>
       <span>{patient.level}</span>
+    </div>
+  );
+}
+
+function MeterBar({ label, value, tone = 'neutral' }: { label: string; value: number | null | undefined; tone?: 'neutral' | 'warn' | 'danger' | 'ok' }) {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : null;
+  return (
+    <div className={`ml-meter tone-${tone}`}>
+      <div className="ml-meter-label">
+        <span>{label}</span>
+        <b>{n == null ? '—' : n}</b>
+      </div>
+      <div className="ml-meter-track" aria-hidden="true">
+        <i style={{ width: `${n ?? 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function MlInsights({ patient }: { patient: Patient }) {
+  const checkIns = patient.checkIns ?? [];
+  const latest = checkIns[0];
+  if (!latest) return null;
+
+  const trend = [...checkIns].reverse().map((ci) => ({
+    at: ci.createdAt,
+    distress: typeof ci.distress === 'number' ? ci.distress : 0,
+    safety: typeof ci.safetyRisk === 'number' ? Math.round(ci.safetyRisk) : 0,
+    escalation: typeof ci.escalationRisk === 'number' ? ci.escalationRisk : 0,
+    label: new Date(ci.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  }));
+
+  const emotionEntries = Object.entries(latest.emotions || {})
+    .map(([k, v]) => [k, typeof v === 'number' ? v : 0] as const)
+    .sort((a, b) => b[1] - a[1]);
+  const emotionMax = Math.max(1, ...emotionEntries.map(([, v]) => (v <= 1 ? v * 100 : v)));
+  const activeSignals = Object.entries(latest.signals || {})
+    .filter(([, on]) => Boolean(on))
+    .map(([k]) => k.replace(/_/g, ' '));
+  const factors = latest.factors?.length ? latest.factors : [];
+  const recommendations = latest.recommendations?.length ? latest.recommendations : [];
+
+  return (
+    <div className="ml-insights">
+      <div className="chart-label">
+        <span>ML analysis infographics</span>
+        <small>
+          Latest check-in · {latest.priority ?? 'unscored'}
+          {latest.method ? ` · ${latest.method}` : ''}
+          {latest.fallback ? ' · heuristic fallback' : ''}
+        </small>
+      </div>
+
+      <div className="ml-score-grid">
+        <MeterBar label="Distress" value={latest.distress} tone={(latest.distress ?? 0) >= 75 ? 'danger' : (latest.distress ?? 0) >= 55 ? 'warn' : 'ok'} />
+        <MeterBar label="Safety risk" value={latest.safetyRisk} tone={(latest.safetyRisk ?? 0) >= 70 ? 'danger' : (latest.safetyRisk ?? 0) >= 40 ? 'warn' : 'ok'} />
+        <MeterBar label="Escalation" value={latest.escalationRisk} tone={(latest.escalationRisk ?? 0) >= 70 ? 'danger' : (latest.escalationRisk ?? 0) >= 40 ? 'warn' : 'neutral'} />
+        <MeterBar
+          label="Voice stress"
+          value={latest.stressScore != null ? Math.round(latest.stressScore <= 1 ? latest.stressScore * 100 : latest.stressScore) : null}
+          tone="neutral"
+        />
+      </div>
+
+      <div className="ml-insight-split">
+        <div className="ml-panel">
+          <div className="chart-label">
+            <span>Distress trend</span>
+            <small>Recent check-ins</small>
+          </div>
+          <div className="ml-trend" role="img" aria-label="Distress trend chart">
+            {trend.map((point, i) => (
+              <div key={`${point.at}-${i}`} className="ml-trend-col">
+                <div className="ml-trend-bars">
+                  <i className="distress" style={{ height: `${Math.max(4, point.distress)}%` }} title={`Distress ${point.distress}`} />
+                  <i className="safety" style={{ height: `${Math.max(4, point.safety)}%` }} title={`Safety ${point.safety}`} />
+                  <i className="escalation" style={{ height: `${Math.max(4, point.escalation)}%` }} title={`Escalation ${point.escalation}`} />
+                </div>
+                <small>{point.label}</small>
+              </div>
+            ))}
+          </div>
+          <div className="ml-legend">
+            <span><i className="distress" /> Distress</span>
+            <span><i className="safety" /> Safety</span>
+            <span><i className="escalation" /> Escalation</span>
+          </div>
+        </div>
+
+        <div className="ml-panel">
+          <div className="chart-label">
+            <span>Emotion mix</span>
+            <small>{latest.emotionLabel || latest.sentimentLabel || 'From text model'}</small>
+          </div>
+          {emotionEntries.length ? (
+            <ul className="ml-emotion-list">
+              {emotionEntries.map(([name, raw]) => {
+                const pct = Math.round(raw <= 1 ? raw * 100 : raw);
+                const width = Math.round((pct / emotionMax) * 100);
+                return (
+                  <li key={name}>
+                    <span>{name}</span>
+                    <div className="ml-emotion-track"><i style={{ width: `${width}%` }} /></div>
+                    <b>{pct}%</b>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="ml-empty">No emotion breakdown on this check-in yet.</p>
+          )}
+          <div className="ml-chips">
+            {latest.sentimentLabel && <span className="ml-chip">Sentiment · {latest.sentimentLabel}</span>}
+            {latest.sentimentScore != null && (
+              <span className="ml-chip">Score · {(latest.sentimentScore <= 1 ? latest.sentimentScore * 100 : latest.sentimentScore).toFixed(0)}%</span>
+            )}
+            {latest.hasVoice && <span className="ml-chip">Voice attached</span>}
+          </div>
+        </div>
+      </div>
+
+      {(factors.length > 0 || activeSignals.length > 0) && (
+        <div className="ml-panel">
+          <div className="chart-label">
+            <span>Detected factors & signals</span>
+            <small>Prototype NLP flags — review clinically</small>
+          </div>
+          <div className="ml-chips">
+            {factors.map((f) => (
+              <span key={`f-${f}`} className="ml-chip factor">{f.replace(/_/g, ' ')}</span>
+            ))}
+            {activeSignals.map((s) => (
+              <span key={`s-${s}`} className="ml-chip signal">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recommendations.length > 0 && (
+        <div className="ml-panel">
+          <div className="chart-label">
+            <span>Model suggestions</span>
+            <small>Decision support only</small>
+          </div>
+          <ul className="ml-recs">
+            {recommendations.slice(0, 5).map((rec) => (
+              <li key={rec}>{rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -648,8 +907,69 @@ function Overview({
   );
 }
 
-function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Patient) => void }) {
+function PatientPanel({ patient }: { patient: Patient; setCall?: (p: Patient) => void }) {
+  const services = getServices();
   const profile = patient.profile;
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [scheduleTime, setScheduleTime] = useState('11:00');
+  const [scheduleMode, setScheduleMode] = useState<'Phone' | 'Video meet'>('Video meet');
+  const [scheduleNote, setScheduleNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (playingVideoUrl) URL.revokeObjectURL(playingVideoUrl);
+    };
+  }, [playingVideoUrl]);
+
+  useEffect(() => {
+    if (playingVideoUrl) URL.revokeObjectURL(playingVideoUrl);
+    setPlayingVideoUrl(null);
+    setPlayingVideoId(null);
+    setError('');
+    setStatus('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset media when switching patients
+  }, [patient.id]);
+
+  async function playPatientVideo(recordingId: string) {
+    if (!isApiEnabled()) {
+      setError('API is required to play patient videos.');
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      if (playingVideoUrl) URL.revokeObjectURL(playingVideoUrl);
+      setPlayingVideoUrl(null);
+      setPlayingVideoId(null);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wellbeing-support:auth-token') : null;
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+      const res = await fetch(
+        `${base}/api/professional/patients/${encodeURIComponent(patient.id)}/recordings/${encodeURIComponent(recordingId)}/file`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(detail || `Could not load video (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPlayingVideoId(recordingId);
+      setPlayingVideoUrl(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not play video recording.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const rows: [string, string][] = [
     ['Location', profile?.location || 'Not provided'],
     ['ABHA ID', profile?.abhaId ? `${profile.abhaId}${profile.abhaVerified ? ' · verified' : ''}` : 'Not provided'],
@@ -662,6 +982,54 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
     rows.push(['ABHA name', String(profile.abhaProfile.name)]);
   }
 
+  async function sendMessage() {
+    if (!messageText.trim()) {
+      setError('Write a short message first.');
+      return;
+    }
+    if (!isApiEnabled() || !services.professional.messagePatient) {
+      setError('API is required to message patients.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const result = await services.professional.messagePatient(patient.id, messageText.trim());
+      setStatus(result.message);
+      setMessageText('');
+      setComposeOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not send message.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function scheduleCall() {
+    if (!isApiEnabled() || !services.professional.schedulePatientCall) {
+      setError('API is required to schedule calls.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const result = await services.professional.schedulePatientCall(patient.id, {
+        date: scheduleDate,
+        time: scheduleTime,
+        mode: scheduleMode,
+        note: scheduleNote.trim() || undefined,
+      });
+      setStatus(result.message);
+      setScheduleOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not schedule call.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card className="patient-panel">
       <div className="patient-panel-head">
@@ -670,6 +1038,7 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
           <small>{patient.id}</small>
           <h2>{patient.name}</h2>
           <span className="consent-pill"><Check />Consent: {patient.consent}</span>
+          {patient.anonymous ? <span className="anon-pill">Anonymous user</span> : null}
         </div>
         <RiskBadge patient={patient} />
       </div>
@@ -688,6 +1057,16 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
           )}
         </div>
       </div>
+      <MlInsights patient={patient} />
+      {patient.checkIns?.[0]?.theme && (
+        <div className="patient-theme-help">
+          <ThemeResolutionPanel
+            themeId={patient.checkIns[0].theme}
+            compact
+            title={`Resolution paths for ${patient.name}'s latest theme`}
+          />
+        </div>
+      )}
       {patient.checkIns && patient.checkIns.length > 0 && (
         <div className="patient-checkins">
           <div className="chart-label">
@@ -699,8 +1078,21 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
               <li key={ci.id}>
                 <div>
                   <b>{ci.theme.replace(/_/g, ' ')}</b>
-                  <small>{new Date(ci.createdAt).toLocaleString()} · {ci.priority ?? '—'} · distress {ci.distress ?? '—'}</small>
+                  <small>
+                    {new Date(ci.createdAt).toLocaleString()} · {ci.priority ?? '—'}
+                    {' · '}distress {ci.distress ?? '—'}
+                    {' · '}safety {ci.safetyRisk != null ? Math.round(ci.safetyRisk) : '—'}
+                    {' · '}escalation {ci.escalationRisk ?? '—'}
+                    {ci.sentimentLabel ? ` · ${ci.sentimentLabel}` : ''}
+                  </small>
                   {ci.text && <p>{ci.text}</p>}
+                  {!!ci.factors?.length && (
+                    <div className="ml-chips compact">
+                      {ci.factors.slice(0, 4).map((f) => (
+                        <span key={f} className="ml-chip factor">{f.replace(/_/g, ' ')}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {ci.hasVoice && (
                   <button
@@ -730,6 +1122,51 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
           </ul>
         </div>
       )}
+      {patient.videoRecordings && patient.videoRecordings.length > 0 && (
+        <div className="patient-checkins patient-videos">
+          <div className="chart-label">
+            <span>Wellbeing video recordings</span>
+            <small>Shared under care-summary consent · under {patient.name}</small>
+          </div>
+          <ul className="checkin-pro-list">
+            {patient.videoRecordings.map((rec) => (
+              <li key={rec.id}>
+                <div>
+                  <b><Video size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />Video conversation</b>
+                  <small>
+                    {new Date(rec.createdAt).toLocaleString()}
+                    {rec.sizeBytes ? ` · ${Math.max(1, Math.round(rec.sizeBytes / 1024))} KB` : ''}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={busy}
+                  onClick={() => void playPatientVideo(rec.id)}
+                >
+                  {playingVideoId === rec.id ? 'Playing' : 'Watch'}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {playingVideoUrl && (
+            <div className="patient-video-player">
+              <video key={playingVideoUrl} controls autoPlay src={playingVideoUrl} />
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  if (playingVideoUrl) URL.revokeObjectURL(playingVideoUrl);
+                  setPlayingVideoUrl(null);
+                  setPlayingVideoId(null);
+                }}
+              >
+                Close video
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="patient-profile-block">
         <div className="chart-label">
           <span>Profile details</span>
@@ -746,21 +1183,76 @@ function PatientPanel({ patient, setCall }: { patient: Patient; setCall: (p: Pat
       </div>
       <div className="signal-chart">
         <div className="chart-label">
-          <span>Recent support signal</span>
-          <small>Last 5 check-ins</small>
+          <span>Support signal history</span>
+          <small>{patient.checkIns?.length ? 'Distress from recent ML check-ins' : 'Last 5 mood samples'}</small>
         </div>
         <div className="spark-bars">
-          {patient.mood.map((n, i) => (
-            <i key={i} style={{ height: `${n}%` }}><span>{n}</span></i>
+          {(patient.checkIns?.length
+            ? [...patient.checkIns].reverse().map((ci) => Math.round(ci.distress ?? 0))
+            : patient.mood
+          ).map((n, i) => (
+            <i key={i} style={{ height: `${Math.max(8, n)}%` }}><span>{n}</span></i>
           ))}
         </div>
       </div>
       <div className="patient-actions">
-        <Button onClick={() => setCall(patient)}><Video />Start call</Button>
-        <Button variant="secondary"><FileText />Open summary</Button>
-        <Button variant="ghost"><MessageSquareText />Message</Button>
+        <Button onClick={() => { setScheduleOpen(true); setError(''); setStatus(''); }}><CalendarDays />Schedule call</Button>
+        <Button variant="secondary" onClick={() => { setComposeOpen(true); setError(''); setStatus(''); }}><MessageSquareText />Message</Button>
       </div>
+      {status && <p className="success-text" role="status"><Check size={16} /> {status}</p>}
+      {error && <p className="error-text">{error}</p>}
       <p className="fine-print">This prototype score is illustrative, non-diagnostic, and never replaces clinical assessment or emergency protocol.</p>
+
+      {composeOpen && (
+        <div className="mini-modal" role="dialog" aria-modal="true">
+          <div>
+            <h3>Message {patient.name}</h3>
+            <p>They will see this under Care messages. If they have an email on file, a notification is also logged/sent.</p>
+            <label className="field">
+              <span>Message</span>
+              <textarea rows={5} value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Write a supportive follow-up…" />
+            </label>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <Button onClick={() => void sendMessage()} disabled={busy}>{busy ? 'Sending…' : 'Send message'}</Button>
+              <Button variant="secondary" onClick={() => setComposeOpen(false)} disabled={busy}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scheduleOpen && (
+        <div className="mini-modal" role="dialog" aria-modal="true">
+          <div>
+            <h3>Schedule a call</h3>
+            <p>Choose date, time, and mode. The patient gets an in-app notice{profile?.email ? ` and email to ${profile.email}` : ''}.</p>
+            <div className="editor-row">
+              <label className="field">
+                <span>Date</span>
+                <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Time</span>
+                <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+              </label>
+            </div>
+            <label className="field">
+              <span>Mode</span>
+              <select value={scheduleMode} onChange={(e) => setScheduleMode(e.target.value as 'Phone' | 'Video meet')}>
+                <option value="Phone">Phone</option>
+                <option value="Video meet">Video meet</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Note (optional)</span>
+              <input value={scheduleNote} onChange={(e) => setScheduleNote(e.target.value)} placeholder="Bring recent sleep notes…" />
+            </label>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <Button onClick={() => void scheduleCall()} disabled={busy}>{busy ? 'Scheduling…' : 'Confirm schedule'}</Button>
+              <Button variant="secondary" onClick={() => setScheduleOpen(false)} disabled={busy}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -936,35 +1428,69 @@ function ProfessionalAppointments({
 }
 
 function Updates() {
+  const services = getServices();
+  const [logs, setLogs] = useState<Array<{
+    id: string;
+    to: string;
+    notificationType: string;
+    subject: string | null;
+    body: string | null;
+    status: string;
+    createdAt: string;
+    patientName?: string;
+  }>>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isApiEnabled() || !services.professional.notifications) {
+        setLoading(false);
+        setError('API required to load email notification logs.');
+        return;
+      }
+      try {
+        const rows = await services.professional.notifications();
+        if (!cancelled) setLogs(rows);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load email logs.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <Card className="queries-card">
-      <p className="kicker">Care team activity</p>
-      <h2>Recent updates</h2>
+      <p className="kicker">Email notifications</p>
+      <h2>Messages sent to users</h2>
+      <p className="portal-disclaimer">
+        Sign-in, signup, appointments, counsellor messages, and scheduled calls are emailed when the user has an address on file.
+        With <code>NOTIFICATION_MODE=log</code> they are logged; set <code>live</code> + <code>RESEND_API_KEY</code> to send via Resend.
+      </p>
+      {loading && <p>Loading notification log…</p>}
+      {error && <p className="error-text">{error}</p>}
+      {!loading && !error && logs.length === 0 && (
+        <p>No emails logged yet. Sign in as a patient or send a counsellor message to generate one.</p>
+      )}
       <div className="update-timeline">
-        <article>
-          <span><Activity /></span>
-          <div>
-            <b>Patient signal updated</b>
-            <p>Anonymous 2041 moved from elevated to high. Manual review requested.</p>
-            <small>8 minutes ago</small>
-          </div>
-        </article>
-        <article>
-          <span><CalendarDays /></span>
-          <div>
-            <b>Appointment confirmed</b>
-            <p>Mira S. confirmed a video consultation for Friday at 11:00 AM.</p>
-            <small>34 minutes ago</small>
-          </div>
-        </article>
-        <article>
-          <span><Check /></span>
-          <div>
-            <b>Query resolved</b>
-            <p>Care coordinator shared the requested grounding resources.</p>
-            <small>2 hours ago</small>
-          </div>
-        </article>
+        {logs.map((log) => (
+          <article key={log.id}>
+            <span><Bell /></span>
+            <div>
+              <b>{log.subject || log.notificationType}</b>
+              <p>
+                To {log.patientName || log.to} · {log.notificationType.replace(/_/g, ' ')} · status <em>{log.status}</em>
+              </p>
+              {log.body && <small className="email-log-body">{log.body.slice(0, 180)}{log.body.length > 180 ? '…' : ''}</small>}
+              <small>{new Date(log.createdAt).toLocaleString()}</small>
+            </div>
+          </article>
+        ))}
       </div>
     </Card>
   );

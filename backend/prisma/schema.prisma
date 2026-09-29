@@ -72,6 +72,8 @@ model User {
   patientQueries       PatientQuery[]      @relation("PatientQueries")
   answeredQueries      PatientQuery[]      @relation("AnsweredQueries")
   notifications        Notification[]
+  careMessagesReceived CareMessage[]       @relation("CareMessagePatient")
+  careMessagesSent     CareMessage[]       @relation("CareMessageClinician")
   organizationMembers  OrganizationMember[]
   analyticsEvents      AnalyticsEvent[]
   auditLogs            AuditLog[]
@@ -289,16 +291,33 @@ model PatientQuery {
   responder  User?         @relation("AnsweredQueries", fields: [responderId], references: [id])
 }
 
+model CareMessage {
+  id          String   @id @default(cuid())
+  patientId   String
+  clinicianId String
+  body        String
+  kind        String   @default("message") // message | schedule
+  metaJson    String   @default("{}")
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  patient     User     @relation("CareMessagePatient", fields: [patientId], references: [id], onDelete: Cascade)
+  clinician   User     @relation("CareMessageClinician", fields: [clinicianId], references: [id], onDelete: Cascade)
+}
+
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  channel   String
-  to        String
-  subject   String
-  body      String
-  status    String   @default("queued")
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  userId            String
+  appointmentId     String?
+  channel           String
+  notificationType  String   @default("GENERAL")
+  to                String
+  subject           String
+  body              String
+  status            String   @default("queued")
+  providerMessageId String?
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AnalyticsEvent {

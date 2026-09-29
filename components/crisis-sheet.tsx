@@ -10,9 +10,12 @@ export function CrisisSheet({open,onClose}:{open:boolean;onClose:()=>void}){
     <p className="kicker">Urgent support</p><h2 id="crisis-heading">Do you need urgent help right now?</h2>
     <p>This website cannot dispatch emergency help. It can help you reach verified services.</p>
     <div className="crisis-options">
+      <a className="crisis-call" href={crisisResources.nhaa.href}><Phone size={19}/><span><b>Call {crisisResources.nhaa.name}</b><small>{crisisResources.nhaa.number}</small></span></a>
       <a className="crisis-call" href={crisisResources.teleManas.href}><Phone size={19}/><span><b>Call {crisisResources.teleManas.name}</b><small>{crisisResources.teleManas.number}</small></span></a>
       <a className="crisis-call emergency" href={crisisResources.emergency.href}><Phone size={19}/><span><b>Call emergency services</b><small>{crisisResources.emergency.number}</small></span></a>
-      <Link className="sheet-option" href="/crisis"><ShieldAlert size={18}/> View other crisis resources</Link>
+      <a className="crisis-call" href={crisisResources.nalsa.href}><Phone size={19}/><span><b>Call {crisisResources.nalsa.name}</b><small>{crisisResources.nalsa.number}</small></span></a>
+      <Link className="sheet-option" href="/crisis"><ShieldAlert size={18}/> Themed resolution &amp; crisis resources</Link>
+      <Link className="sheet-option" href="/check-in">Start themed wellbeing check-in</Link>
       <button className="sheet-option" onClick={()=>alert('Prototype planning prompt: choose someone you trust and decide what you want to say. No message has been sent.')}><UserRound size={18}/> Contact someone I trust</button>
       <Link className="sheet-option" href="/safety-plan">Create or open my safety plan</Link>
       <Link className="sheet-option" href="/chat">Return to conversation</Link>

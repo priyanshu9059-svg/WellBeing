@@ -10,6 +10,7 @@ import { crisisResources, HIGH_RISK_PHRASES, PHYSICAL_URGENT_PHRASES } from '@/c
 import { suggestedPromptsByLanguage } from '@/mocks/data';
 import { getServices } from '@/services';
 import { isApiEnabled } from '@/lib/api';
+import { isBrowserSpeechSupported, pickBestTranscript, startBrowserSpeech } from '@/lib/browser-speech';
 import type { ChatMessage } from '@/types';
 import { newId } from '@/lib/utils';
 
@@ -554,7 +555,7 @@ export function VideoConversationPanel({ onRecordingSaved, onRecordingDeleted }:
         <div>
           <p className="kicker">Video chat</p>
           <h2>Talk with the AI companion</h2>
-          <p>Use voice, camera, and replay as a prototype conversation space. Prediction and backend review are placeholders until validated.</p>
+          <p>Record a short conversation clip. When saved, counsellors with care-summary consent can review it under your name on the professional portal.</p>
         </div>
         <span className={`call-status ${state === 'recording' ? 'recording' : ''}`}>
           {state === 'recording' ? 'Recording' : state === 'live' ? 'Camera live' : state === 'stopped' ? 'Recording ready' : 'Ready'}
@@ -629,18 +630,30 @@ export function VideoConversationPanel({ onRecordingSaved, onRecordingDeleted }:
 
 function VoicePanel({ initialStream, onClose, onTranscript }: { initialStream: MediaStream | null; onClose: () => void; onTranscript: (text: string) => void }) {
   const services = getServices();
+  const { language } = useLanguage();
   const [state, setState] = useState<'idle' | 'recording' | 'paused' | 'stopped' | 'unsupported'>('idle');
   const [seconds, setSeconds] = useState(0);
   const [url, setUrl] = useState('');
   const [signals, setSignals] = useState<Record<string, string> | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const [transcriptSent, setTranscriptSent] = useState(false);
+  const [statusNote, setStatusNote] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const speechRef = useRef<ReturnType<typeof startBrowserSpeech> | null>(null);
+
+  const speechLang = language === 'Hindi' ? 'hi-IN' : 'en-IN';
+
+  useEffect(() => {
+    setSpeechSupported(isBrowserSpeechSupported());
+  }, []);
 
   useEffect(() => {
     if (!navigator.mediaDevices || !window.MediaRecorder) setState('unsupported');
     return () => {
       if (recorder.current?.state === 'recording') recorder.current.stop();
+      void speechRef.current?.stop();
       if (url) URL.revokeObjectURL(url);
     };
   }, [url]);
@@ -653,42 +666,99 @@ function VoicePanel({ initialStream, onClose, onTranscript }: { initialStream: M
 
   async function start(streamFromParent?: MediaStream) {
     try {
-      const stream = streamFromParent ?? await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const stream = streamFromParent ?? await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg',
+      ].find((t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(t)) || '';
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunks.current = [];
-      mr.ondataavailable = (e) => chunks.current.push(e.data);
+      setLiveTranscript('');
+      setStatusNote('');
+      setTranscriptSent(false);
+      // Start recorder first so SpeechRecognition is less likely to lose the mic.
+      mr.ondataavailable = (e) => {
+        if (e.data?.size) chunks.current.push(e.data);
+      };
+      mr.onerror = () => {
+        setStatusNote('Recording interrupted. Please try again or type your message.');
+        setState('idle');
+      };
       mr.onstop = async () => {
-        const next = new Blob(chunks.current, { type: mr.mimeType });
+        const type = mr.mimeType || mimeType || 'audio/webm';
+        const next = new Blob(chunks.current, { type });
         setUrl(URL.createObjectURL(next));
-        stream.getTracks().forEach((t) => t.stop());
+        if (!streamFromParent) stream.getTracks().forEach((t) => t.stop());
         setState('stopped');
         setTranscriptSent(false);
+        const browserText = (await speechRef.current?.stop()) || liveTranscript;
+        const speechError = speechRef.current?.getError?.() || null;
+        speechRef.current = null;
         try {
-          const [analysis, transcript] = await Promise.all([
-            services.voiceAnalysis.analyze(next),
-            services.voiceTranscription.transcribe(next),
+          const [analysis, apiTranscript] = await Promise.all([
+            services.voiceAnalysis.analyze(next).catch(() => null),
+            services.voiceTranscription.transcribe(next).catch(() => ''),
           ]);
-          setSignals(analysis);
-          onTranscript(transcript);
-          setTranscriptSent(true);
+          if (analysis) setSignals(analysis);
+          else {
+            setSignals({
+              pace: 'Steady',
+              pauses: 'Some',
+              energy: 'Moderate',
+              voiceActivity: 'Present',
+              possibleTone: 'Reflective',
+            });
+          }
+          const transcript = pickBestTranscript(apiTranscript, browserText);
+          if (transcript) {
+            setLiveTranscript(transcript);
+            onTranscript(transcript);
+            setTranscriptSent(true);
+            setStatusNote(
+              apiTranscript?.trim()
+                ? 'Transcribed and sent to chat.'
+                : 'Browser speech transcribed and sent to chat.',
+            );
+          } else {
+            const hint =
+              speechError === 'not-allowed'
+                ? 'Microphone permission is blocked for speech recognition.'
+                : speechError === 'network'
+                  ? 'Browser speech needs a network connection in Chrome/Edge.'
+                  : 'Could not hear clear speech. Try again in Chrome/Edge, or type your message.';
+            setStatusNote(hint);
+          }
         } catch {
-          setSignals({
-            pace: 'Steady',
-            pauses: 'Some',
-            energy: 'Moderate',
-            voiceActivity: 'Present',
-            possibleTone: 'Reflective',
-          });
-          onTranscript('I have been feeling overwhelmed lately, and I would like someone to listen.');
-          setTranscriptSent(true);
+          const transcript = pickBestTranscript(browserText);
+          if (transcript) {
+            setLiveTranscript(transcript);
+            onTranscript(transcript);
+            setTranscriptSent(true);
+            setStatusNote('Browser speech transcribed and sent to chat.');
+          } else {
+            setStatusNote('Transcription unavailable. Please type your message.');
+          }
         }
       };
-      mr.start();
+      mr.start(250);
       recorder.current = mr;
       setSeconds(0);
       setState('recording');
+      // Delay speech slightly so MediaRecorder owns the track first.
+      window.setTimeout(() => {
+        if (recorder.current !== mr || mr.state !== 'recording') return;
+        speechRef.current = startBrowserSpeech(speechLang, setLiveTranscript);
+        if (!speechRef.current && !speechSupported) {
+          setStatusNote('Live speech unavailable here — recording still works; type if needed.');
+        }
+      }, 180);
     } catch {
       setState('unsupported');
+      setStatusNote('Microphone permission is needed for voice chat.');
     }
   }
 
@@ -715,7 +785,9 @@ function VoicePanel({ initialStream, onClose, onTranscript }: { initialStream: M
     if (url) URL.revokeObjectURL(url);
     setUrl('');
     setSignals(null);
+    setLiveTranscript('');
     setTranscriptSent(false);
+    setStatusNote('');
     setSeconds(0);
     setState('idle');
   }
@@ -731,7 +803,20 @@ function VoicePanel({ initialStream, onClose, onTranscript }: { initialStream: M
           <X />
         </button>
       </div>
-      <p>{isApiEnabled() ? 'Recording can be transcribed through the support API when configured.' : 'Your recording stays in this session and is not sent to a voice model.'}</p>
+      <p>
+        {speechSupported
+          ? 'Speak naturally — your words are transcribed live and sent to the chat when you stop.'
+          : isApiEnabled()
+            ? 'Recording can be transcribed through the support API when OPENAI_API_KEY is set.'
+            : 'Your recording stays in this session. Use Chrome/Edge for live transcription, or type.'}
+      </p>
+      {(state === 'recording' || state === 'paused' || liveTranscript) && (
+        <div className="live-transcript" aria-live="polite">
+          <small>Live transcript</small>
+          <p>{liveTranscript || 'Listening…'}</p>
+        </div>
+      )}
+      {statusNote && <p className="success-text" role="status">{statusNote}</p>}
       {state === 'unsupported' ? (
         <div className="notice">
           <b>Voice recording is unavailable here.</b>
@@ -786,6 +871,17 @@ function VoicePanel({ initialStream, onClose, onTranscript }: { initialStream: M
                   <Trash2 size={17} /> Delete
                 </Button>
                 {transcriptSent && <span className="transcript-status">Transcript sent to chat</span>}
+                {!transcriptSent && liveTranscript && (
+                  <Button
+                    onClick={() => {
+                      onTranscript(liveTranscript);
+                      setTranscriptSent(true);
+                      setStatusNote('Transcript sent to chat.');
+                    }}
+                  >
+                    <Send size={17} /> Send transcript
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={start}>
                   <RotateCcw size={17} /> Retry
                 </Button>

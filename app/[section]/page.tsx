@@ -9,6 +9,7 @@ import { AboutPage, CrisisPage, FaqPage, NotFound, OfflinePage, SettingsPage, Su
 import { ConsultancyHub } from '@/features/consultancy/consultancy-hub';
 import { CheckInFlow } from '@/features/checkin/check-in-flow';
 import { CheckInHistory } from '@/features/checkin/check-in-history';
+import { CareMessagesPage } from '@/features/care/care-messages';
 import { ProfessionalPortal } from '@/features/professional/professional-portal';
 import { ProfileDetailsPage } from '@/features/profile/profile-details';
 import { LoginPage } from '@/features/auth/login-page';
@@ -23,6 +24,7 @@ const pageMap:Record<string,{title:TranslationKey;description?:TranslationKey;co
   wellbeing:{title:'wellbeingTitle',description:'wellbeingDescription',content:<ChatExperience/>},
   'check-in':{title:'checkInTitle',description:'checkInDescription',content:<CheckInFlow/>},
   history:{title:'historyTitle',description:'historyDescription',content:<CheckInHistory/>},
+  messages:{title:'careMessagesTitle',description:'careMessagesDescription',content:<CareMessagesPage/>},
   consultancy:{title:'consultancyTitle',description:'consultancyDescription',content:<ConsultancyHub/>},
   professional:{title:'professionalTitle',description:'professionalDescription',content:<ProfessionalPortal/>},
   'safety-plan':{title:'safetyTitle',description:'safetyDescription',content:<SafetyPlan/>},

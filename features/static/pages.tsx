@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, Camera, Check, CircleHelp, ClipboardList, Download, FileText, History, IdCard, Leaf, LogOut, MessageCircle, Phone, Shield, UserRound } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { crisisResources } from '@/config/crisis-resources';
+import { ATROCITY_DIRECT_HELPLINES, THEME_RESOLUTIONS } from '@/config/theme-resolutions';
+import { ThemeResolutionPanel } from '@/components/theme-resolution-panel';
 import { features } from '@/config/features';
 import { LanguageSelect, useLanguage } from '@/components/language-provider';
 import { getServices, type UserProfileDetails } from '@/services';
@@ -61,6 +63,7 @@ export function SupportHome() {
 
 export function CrisisPage() {
   const [note, setNote] = useState('');
+  const [themeId, setThemeId] = useState('threats_intimidation');
   async function contactTrusted() {
     const who = window.prompt('Who would you like to plan to contact? (name or role)');
     if (!who) return;
@@ -80,6 +83,7 @@ export function CrisisPage() {
           <li><b>Call emergency services (112)</b> immediately if you or someone else is in life-threatening danger.</li>
           <li>Go to the nearest emergency room or hospital.</li>
           <li>Call <b>Tele-MANAS (14416)</b> for mental health support.</li>
+          <li>Call <b>NHAA atrocity support (14566)</b> for atrocity-related distress and guidance.</li>
           <li>Reach out to a trusted friend, family member, or neighbour and stay with someone safe.</li>
           <li>Move away from anything you could use to hurt yourself or someone else.</li>
         </ol>
@@ -89,21 +93,45 @@ export function CrisisPage() {
         <div className="icon-orb crisis">!</div>
         <p className="kicker">Immediate support in India</p>
         <h2>You can reach out right now.</h2>
-        <p className="lead">This website cannot dispatch emergency help. It can help you reach verified services.</p>
+        <p className="lead">This website cannot dispatch emergency help. It can help you reach services for safety, legal aid, and atrocity-related distress.</p>
         <div className="crisis-primary-grid">
           <a className="crisis-call large" href={crisisResources.emergency.href}><Phone /><span><b>Emergency services</b><small>{crisisResources.emergency.number}</small></span></a>
+          <a className="crisis-call large" href={crisisResources.nhaa.href}><Phone /><span><b>NHAA atrocity support</b><small>{crisisResources.nhaa.number}</small></span></a>
           <a className="crisis-call large" href={crisisResources.teleManas.href}><Phone /><span><b>Tele-MANAS</b><small>{crisisResources.teleManas.number}</small></span></a>
-          <a className="crisis-call large emergency" href={crisisResources.ambulance.href}><Phone /><span><b>Ambulance</b><small>{crisisResources.ambulance.number}</small></span></a>
+          <a className="crisis-call large emergency" href={crisisResources.nalsa.href}><Phone /><span><b>NALSA legal aid</b><small>{crisisResources.nalsa.number}</small></span></a>
         </div>
         <div className="crisis-helplines">
           <p className="kicker">More helplines</p>
           <div className="crisis-helpline-grid">
-            {crisisResources.additional.map((resource) => (
-              <a className="crisis-call compact" href={resource.href} key={resource.number}><Phone /><span><b>{resource.name}</b><small>{resource.number}</small></span></a>
+            {ATROCITY_DIRECT_HELPLINES.map((resource) => (
+              <a className="crisis-call compact" href={resource.href} key={`${resource.name}-${resource.number}`}><Phone /><span><b>{resource.name}</b><small>{resource.number}</small></span></a>
             ))}
+            {crisisResources.additional
+              .filter((resource) => !ATROCITY_DIRECT_HELPLINES.some((a) => a.number === resource.number))
+              .map((resource) => (
+                <a className="crisis-call compact" href={resource.href} key={resource.number}><Phone /><span><b>{resource.name}</b><small>{resource.number}</small></span></a>
+              ))}
           </div>
         </div>
+        <div className="crisis-theme-block">
+          <p className="kicker">Case-lifecycle themed resolution</p>
+          <h3>Choose the pressure you are facing</h3>
+          <p>
+            Threats, court stress, investigation delays, ostracism, economic hardship, rehabilitation,
+            family safety, and counselling each have different next steps. Pick a theme for helplines and official portals.
+          </p>
+          <label className="field">
+            <span>Support theme</span>
+            <select value={themeId} onChange={(e) => setThemeId(e.target.value)}>
+              {Object.values(THEME_RESOLUTIONS).map((theme) => (
+                <option key={theme.id} value={theme.id}>{theme.label}</option>
+              ))}
+            </select>
+          </label>
+          <ThemeResolutionPanel themeId={themeId} />
+        </div>
         <div className="crisis-other">
+          <Link href="/check-in">Start a themed wellbeing check-in <ArrowRight /></Link>
           <Link href="/safety-plan">Open my safety plan <ArrowRight /></Link>
           <Link href="/chat">Return to my conversation <ArrowRight /></Link>
           <button onClick={contactTrusted}>Plan how to contact someone I trust <ArrowRight /></button>

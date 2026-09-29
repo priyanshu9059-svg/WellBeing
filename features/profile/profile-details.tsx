@@ -4,10 +4,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Check, IdCard, MapPin, Pencil, Phone, UserRound } from 'lucide-react';
+import { Check, IdCard, LogOut, MapPin, Pencil, Phone, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ensureSession, isApiEnabled } from '@/lib/api';
+import { signOutLocalUser } from '@/lib/local-user-auth';
 import { getServices, type AbhaProfileDto, type AuthUser, type UserProfileDetails } from '@/services';
 
 const GENDERS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say', 'Self-describe'] as const;
@@ -187,6 +188,21 @@ export function ProfileDetailsPage({ mode = 'view' }: { mode?: Mode }) {
     abhaPreview?.name ||
     (form.abhaProfile && typeof form.abhaProfile.name === 'string' ? form.abhaProfile.name : '');
 
+  async function logOut() {
+    setBusy(true);
+    try {
+      await services.authentication.signOut();
+    } catch {
+      /* continue local sign-out */
+    }
+    try {
+      signOutLocalUser();
+    } catch {
+      /* ignore */
+    }
+    router.push('/login');
+  }
+
   if (!editing && mode !== 'complete') {
     return (
       <div className="narrow-page profile-view-page">
@@ -265,6 +281,15 @@ export function ProfileDetailsPage({ mode = 'view' }: { mode?: Mode }) {
             ) : (
               <Link className="btn btn-secondary" href="/consultancy">
                 <MapPin size={16} /> Find nearby care
+              </Link>
+            )}
+            {signedIn ? (
+              <Button variant="danger" onClick={() => void logOut()} disabled={busy}>
+                <LogOut size={16} /> Log out
+              </Button>
+            ) : (
+              <Link className="btn btn-secondary" href="/login">
+                <LogOut size={16} /> Sign in
               </Link>
             )}
           </div>

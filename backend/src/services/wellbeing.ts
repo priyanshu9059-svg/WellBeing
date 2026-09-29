@@ -153,6 +153,18 @@ export function supportiveReply(message: string): string {
   if (lower.includes('anxious') || lower.includes('anxiety') || lower.includes('worried')) {
     return 'Anxiety can make the body and mind feel restless together. What tends to show up first for you—thoughts, body sensations, or both?';
   }
+  if (/\b(sad|sadness|down|low|empty|numb)\b/.test(lower)) {
+    return 'Sadness can sit heavy and quiet. If it helps, name one moment today that felt hardest—or one thing that still feels a little okay.';
+  }
+  if (/(small thing|one small|try right now|something to try|coping step)/.test(lower)) {
+    return 'Try this for 60 seconds: put both feet on the floor, exhale longer than you inhale (in for 4, out for 6), and loosen your jaw. After that, tell me whether your body feels even 5% softer.';
+  }
+  if (/(understand what i am feeling|understanding what i am feeling|name this feeling)/.test(lower)) {
+    return 'Let’s name it gently. Does this feel closer to fear, sadness, anger, shame, exhaustion, or a mix of several?';
+  }
+  if (/(do not need advice|please listen|just listen|i just need you to listen)/.test(lower)) {
+    return 'I’m listening. No advice first: tell me the part that feels heaviest, and I’ll reflect it back clearly.';
+  }
   if (lower.includes('family')) {
     return 'Family dynamics can be complicated and emotionally draining. What part of that relationship feels hardest to hold right now?';
   }
@@ -164,11 +176,11 @@ function localizedFallback(message: string, selectedLanguage: Language, history:
   const lower = message.toLowerCase();
   const isCare = /(nearby|clinic|hospital|psychiatrist|psychologist|therapy|therapist|ngo|centre|center|care)/.test(lower);
   const isOpening = /^(hi|hello|hey|namaste|नमस्ते)\b|what can you do|start|begin/.test(lower);
-  const wantsPlan = /(plan|small plan|10 minute|priority|pressure)/.test(lower);
+  const wantsPlan = /(plan|small plan|10 minute|priority|pressure|small thing|one small|try right now|something to try|coping)/.test(lower);
   const feelsStuck = /(stuck|cannot figure|where to start|शुरू|atak|अटक)/.test(lower);
   const wantsBreak = /(break|guilty|pause|rest|आराम|विराम)/.test(lower);
-  const wantsListening = /(listen|just listen|sun|सुन)/.test(lower);
-  const wantsFeelingHelp = /(feeling|emotion|understand what i am feeling|name this feeling|triggered)/.test(lower);
+  const wantsListening = /(listen|just listen|do not need advice|sun|सुन)/.test(lower);
+  const wantsFeelingHelp = /(feeling|emotion|understand what i am feeling|understanding what i am feeling|name this feeling|triggered)/.test(lower);
   const previousUser = history.filter((item) => item.role === 'user').slice(-3).map((item) => item.text).join(' ');
   const context = `${previousUser} ${message}`.toLowerCase();
   const isPressureContext = /(exam|work|study|pressure|stress|deadline|परीक्षा|काम|tension)/.test(context);
@@ -191,6 +203,8 @@ function localizedFallback(message: string, selectedLanguage: Language, history:
     else if (wantsListening) text = 'Main sun raha hoon. Advice ki jaldi nahi karte—jo sabse heavy part hai, apne words mein likho.';
     else if (wantsFeelingHelp) text = 'Chalo feeling ko name karte hain. Ye zyada fear, sadness, anger, shame, ya tiredness jaisa lag raha hai?';
     else text = 'Mujhe lag raha hai ye abhi heavy ho sakta hai. Kis part ko pehle talk through karna helpful lagega?';
+  } else if (/(small thing|one small|try right now|something to try|coping step)/.test(lower)) {
+    text = 'Try this for 60 seconds: put both feet on the floor, exhale longer than you inhale (in for 4, out for 6), and loosen your jaw. After that, tell me whether your body feels even 5% softer.';
   } else if (wantsPlan || (isPressureContext && !wantsBreak)) {
     text = 'Let’s make this practical. Write every task down for two minutes, pick the easiest useful one, work on it for ten minutes, then pause and choose the next step. What is the smallest task you can start right now?';
   } else if (feelsStuck) {

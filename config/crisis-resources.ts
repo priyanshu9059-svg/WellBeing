@@ -4,7 +4,11 @@ export const crisisResources = {
   teleManas: { name: 'Tele-MANAS', number: '14416', href: 'tel:14416' },
   emergency: { name: 'Emergency services', number: '112', href: 'tel:112' },
   ambulance: { name: 'Ambulance', number: '108', href: 'tel:108' },
+  nhaa: { name: 'NHAA atrocity support', number: '14566', href: 'tel:14566' },
+  nalsa: { name: 'NALSA legal aid', number: '15100', href: 'tel:15100' },
   additional: [
+    { name: 'NHAA atrocity support', number: '14566', href: 'tel:14566' },
+    { name: 'NALSA legal aid', number: '15100', href: 'tel:15100' },
     { name: 'Police', number: '100', href: 'tel:100' },
     { name: 'Fire services', number: '101', href: 'tel:101' },
     { name: 'Women helpline', number: '181', href: 'tel:181' },

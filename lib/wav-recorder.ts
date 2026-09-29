@@ -38,44 +38,77 @@ export function createWavRecorder(): WavRecorder {
   let context: AudioContext | null = null;
   let processor: ScriptProcessorNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
+  let mute: GainNode | null = null;
   const chunks: Float32Array[] = [];
   const targetRate = 16000;
+
+  const teardown = () => {
+    try {
+      processor?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    try {
+      source?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    try {
+      mute?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    stream?.getTracks().forEach((t) => t.stop());
+    void context?.close().catch(() => undefined);
+    processor = null;
+    source = null;
+    mute = null;
+    stream = null;
+    context = null;
+  };
 
   return {
     async start() {
       chunks.length = 0;
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      context = new AudioContext();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          channelCount: 1,
+        },
+      });
+      const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) throw new Error('AudioContext is not supported in this browser.');
+      context = new Ctx();
+      if (context.state === 'suspended') await context.resume();
       source = context.createMediaStreamSource(stream);
+      // ScriptProcessor must stay in the graph; mute so mic isn't played through speakers.
       processor = context.createScriptProcessor(4096, 1, 1);
+      mute = context.createGain();
+      mute.gain.value = 0;
       processor.onaudioprocess = (e) => {
         const input = e.inputBuffer.getChannelData(0);
         chunks.push(new Float32Array(input));
       };
       source.connect(processor);
-      processor.connect(context.destination);
+      processor.connect(mute);
+      mute.connect(context.destination);
     },
     async stop() {
       const rate = context?.sampleRate ?? 48000;
-      processor?.disconnect();
-      source?.disconnect();
-      stream?.getTracks().forEach((t) => t.stop());
-      await context?.close();
-      processor = null;
-      source = null;
-      stream = null;
-      context = null;
+      teardown();
       const total = chunks.reduce((n, c) => n + c.length, 0);
+      if (!total) return encodeWav(new Float32Array(1600), targetRate);
       const merged = new Float32Array(total);
       let offset = 0;
       for (const c of chunks) {
         merged.set(c, offset);
         offset += c.length;
       }
-      // Resample to 16 kHz if needed
+      chunks.length = 0;
       if (rate === targetRate) return encodeWav(merged, targetRate);
       const ratio = rate / targetRate;
-      const outLen = Math.floor(merged.length / ratio);
+      const outLen = Math.max(1, Math.floor(merged.length / ratio));
       const out = new Float32Array(outLen);
       for (let i = 0; i < outLen; i++) {
         out[i] = merged[Math.floor(i * ratio)] ?? 0;
@@ -83,14 +116,7 @@ export function createWavRecorder(): WavRecorder {
       return encodeWav(out, targetRate);
     },
     discard() {
-      processor?.disconnect();
-      source?.disconnect();
-      stream?.getTracks().forEach((t) => t.stop());
-      void context?.close();
-      processor = null;
-      source = null;
-      stream = null;
-      context = null;
+      teardown();
       chunks.length = 0;
     },
   };

@@ -1,8 +1,29 @@
 import { Router } from 'express';
+import path from 'node:path';
 import { z } from 'zod';
 import { AppointmentStatus, QueryPriority, QueryStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { audit, requireAuth, requireRole, type AuthedRequest } from '../lib/auth.js';
+import { notificationService } from '../services/notification_service.js';
+
+const conversationUploadDir = path.resolve(process.cwd(), 'uploads', 'conversations');
+
+function formatScheduleDate(raw: string): string {
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatScheduleTime(raw: string): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(raw.trim());
+  if (!m) return raw;
+  let h = Number(m[1]);
+  const mins = m[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${mins} ${ampm}`;
+}
 
 export const careRouter = Router();
 
@@ -25,6 +46,43 @@ careRouter.get('/places', async (_req, res, next) => {
         x: p.mapX,
         y: p.mapY,
         specialties: JSON.parse(p.specialtiesJson) as string[],
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+careRouter.get('/messages', requireAuth, async (req: AuthedRequest, res, next) => {
+  try {
+    const items = await prisma.careMessage.findMany({
+      where: { patientId: req.user!.id },
+      include: { clinician: { select: { displayName: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    const unreadIds = items.filter((m) => !m.readAt).map((m) => m.id);
+    if (unreadIds.length) {
+      await prisma.careMessage.updateMany({
+        where: { id: { in: unreadIds }, patientId: req.user!.id },
+        data: { readAt: new Date() },
+      });
+    }
+    res.json(
+      items.map((m) => ({
+        id: m.id,
+        body: m.body,
+        kind: m.kind,
+        meta: (() => {
+          try {
+            return JSON.parse(m.metaJson || '{}') as Record<string, unknown>;
+          } catch {
+            return {};
+          }
+        })(),
+        clinicianName: m.clinician.displayName || 'Your counsellor',
+        createdAt: m.createdAt.toISOString(),
+        readAt: m.readAt?.toISOString() ?? null,
       })),
     );
   } catch (e) {
@@ -66,10 +124,20 @@ careRouter.post('/appointments', requireAuth, async (req: AuthedRequest, res, ne
         mode: z.string(),
       })
       .parse(req.body);
+    const placeId =
+      body.placeId && !body.placeId.startsWith('osm-') && !body.placeId.startsWith('google-')
+        ? (
+            await prisma.carePlace.findUnique({
+              where: { id: body.placeId },
+              select: { id: true },
+            })
+          )?.id ?? null
+        : null;
+
     const appt = await prisma.appointment.create({
       data: {
         userId: req.user!.id,
-        placeId: body.placeId,
+        placeId,
         placeName: body.placeName,
         clinician: body.clinician,
         date: body.date,
@@ -78,6 +146,12 @@ careRouter.post('/appointments', requireAuth, async (req: AuthedRequest, res, ne
         status: AppointmentStatus.CONFIRMED,
       },
     });
+    let notificationStatus = null;
+    try {
+      notificationStatus = await notificationService.notifyAppointmentCreated(appt.id);
+    } catch (err) {
+      console.warn('Appointment email failed:', (err as Error).message);
+    }
     res.status(201).json({
       id: appt.id,
       place: appt.placeName,
@@ -86,6 +160,7 @@ careRouter.post('/appointments', requireAuth, async (req: AuthedRequest, res, ne
       time: appt.time,
       mode: appt.mode,
       status: 'Confirmed',
+      notificationStatus,
     });
   } catch (e) {
     next(e);
@@ -114,6 +189,11 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
       where: { id: existing.id },
       data: { status: map[body.status] },
     });
+    const notificationStatus = await notificationService.notifyAppointmentUpdated(
+      appt.id,
+      existing.status,
+      map[body.status],
+    );
     res.json({
       id: appt.id,
       status:
@@ -124,6 +204,7 @@ careRouter.patch('/appointments/:id', requireAuth, async (req: AuthedRequest, re
             : appt.status === 'CANCELLED'
               ? 'Cancelled'
               : 'Requested',
+      notificationStatus,
     });
   } catch (e) {
     next(e);
@@ -135,6 +216,45 @@ const proRoles = [Role.COUNSELLOR, Role.PSYCHOLOGIST, Role.PSYCHIATRIST, Role.OR
 export const professionalRouter = Router();
 professionalRouter.use(requireAuth, requireRole(...proRoles));
 
+professionalRouter.get('/notifications', async (req: AuthedRequest, res, next) => {
+  try {
+    const rows = await prisma.notification.findMany({
+      where: { channel: 'email' },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+      select: {
+        id: true,
+        to: true,
+        notificationType: true,
+        subject: true,
+        body: true,
+        status: true,
+        providerMessageId: true,
+        errorMessage: true,
+        createdAt: true,
+        user: { select: { id: true, displayName: true, email: true } },
+      },
+    });
+    res.json(
+      rows.map((row) => ({
+        id: row.id,
+        to: row.to,
+        notificationType: row.notificationType,
+        subject: row.subject,
+        body: row.body,
+        status: row.status,
+        providerMessageId: row.providerMessageId,
+        errorMessage: row.errorMessage,
+        createdAt: row.createdAt.toISOString(),
+        patientName: row.user.displayName || row.user.email || 'User',
+        patientId: row.user.id,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
 professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
   try {
     const patientUsers = await prisma.user.findMany({
@@ -142,10 +262,13 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
         role: Role.USER,
         OR: [
           { anonymous: false, email: { not: null } },
+          { anonymous: true },
           { contactConsent: { is: { allowWellbeingSummary: true } } },
           { contactConsent: { is: { allowContact: true } } },
           { counsellorRequests: { some: {} } },
           { checkIns: { some: {} } },
+          { auditLogs: { some: { action: 'conversation.recording.created' } } },
+          { conversations: { some: { messages: { some: {} } } } },
           { location: { not: '' } },
           { abhaId: { not: '' } },
           { phone: { not: '' } },
@@ -158,6 +281,11 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
         moodEntries: { orderBy: { date: 'desc' }, take: 5 },
         wellbeingSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
         checkIns: { orderBy: { createdAt: 'desc' }, take: 5 },
+        auditLogs: {
+          where: { action: 'conversation.recording.created' },
+          orderBy: { createdAt: 'desc' },
+          take: 8,
+        },
         conversations: {
           orderBy: { updatedAt: 'desc' },
           take: 1,
@@ -247,42 +375,104 @@ professionalRouter.get('/dashboard', async (req: AuthedRequest, res, next) => {
 
       const lastAt =
         latestCheckIn?.createdAt ??
+        user.auditLogs[0]?.createdAt ??
         latestAssistant?.createdAt ??
         user.conversations[0]?.updatedAt ??
         user.updatedAt;
       const c = user.contactConsent;
+      const shareMedia = Boolean(c?.allowWellbeingSummary) || user.anonymous;
+      const videoRecordings = shareMedia
+        ? user.auditLogs.map((recording) => {
+            let detail: { filename?: string; sizeBytes?: number; mimeType?: string } = {};
+            try {
+              detail = JSON.parse(recording.detailJson || '{}') as typeof detail;
+            } catch {
+              detail = {};
+            }
+            return {
+              id: recording.id,
+              filename: detail.filename ?? 'conversation-recording.webm',
+              sizeBytes: detail.sizeBytes ?? 0,
+              mimeType: detail.mimeType ?? 'video/webm',
+              createdAt: recording.createdAt.toISOString(),
+            };
+          })
+        : [];
+      const signalWithVideo =
+        !latestCheckIn && videoRecordings.length
+          ? `Wellbeing video · ${videoRecordings.length} recording${videoRecordings.length === 1 ? '' : 's'} shared`
+          : signal;
       return {
         id: user.id,
         name: user.displayName || `Anonymous ${user.id.slice(-4)}`,
+        anonymous: user.anonymous,
         score,
         level,
-        signal,
+        signal: signalWithVideo,
         emotion: latestCheckIn?.emotionLabel ?? chatMeta.emotion ?? null,
         riskLevel: latestCheckIn?.priority ?? riskLevel ?? null,
         confidence: latestCheckIn?.sentimentScore ?? chatMeta.confidence ?? null,
         last: lastAt.toISOString(),
         consent: [
+          user.anonymous ? 'Anonymous session' : null,
           !user.anonymous && user.email ? 'Registered account' : null,
-          c?.allowWellbeingSummary ? 'Care summary' : null,
+          c?.allowWellbeingSummary || user.anonymous ? 'Care summary' : null,
           c?.allowContact ? 'contact' : null,
         ]
           .filter(Boolean)
           .join(' + ') || 'Not shared',
         mood: moods.length ? moods.reverse() : [40, 45, 42, 50, score],
-        checkIns: user.checkIns.map((ci) => ({
-          id: ci.id,
-          theme: ci.theme,
-          text: ci.text.slice(0, 280),
-          priority: ci.priority,
-          distress: ci.distress,
-          safetyRisk: ci.safetyRisk,
-          escalationRisk: ci.escalationRisk,
-          sentimentLabel: ci.sentimentLabel,
-          stressScore: ci.stressScore,
-          emotionLabel: ci.emotionLabel,
-          hasVoice: Boolean(ci.voicePath),
-          createdAt: ci.createdAt.toISOString(),
-        })),
+        checkIns: user.checkIns.map((ci) => {
+          let factors: string[] = [];
+          let emotions: Record<string, number> = {};
+          let recommendations: string[] = [];
+          let signals: Record<string, boolean> = {};
+          let method: string | null = null;
+          let fallback = false;
+          try {
+            factors = JSON.parse(ci.factorsJson || '[]') as string[];
+          } catch {
+            factors = [];
+          }
+          try {
+            const ml = JSON.parse(ci.mlJson || '{}') as {
+              emotions?: Record<string, number>;
+              recommendations?: string[];
+              signals?: Record<string, boolean>;
+              method?: string;
+              fallback?: boolean;
+            };
+            emotions = ml.emotions || {};
+            recommendations = ml.recommendations || [];
+            signals = ml.signals || {};
+            method = ml.method ?? null;
+            fallback = Boolean(ml.fallback);
+          } catch {
+            /* ignore malformed ml json */
+          }
+          return {
+            id: ci.id,
+            theme: ci.theme,
+            text: ci.text.slice(0, 280),
+            priority: ci.priority,
+            distress: ci.distress,
+            safetyRisk: ci.safetyRisk,
+            escalationRisk: ci.escalationRisk,
+            sentimentLabel: ci.sentimentLabel,
+            sentimentScore: ci.sentimentScore,
+            stressScore: ci.stressScore,
+            emotionLabel: ci.emotionLabel,
+            hasVoice: Boolean(ci.voicePath),
+            factors,
+            emotions,
+            recommendations,
+            signals,
+            method,
+            fallback,
+            createdAt: ci.createdAt.toISOString(),
+          };
+        }),
+        videoRecordings,
         profile: {
           location: user.location || '',
           abhaId: user.abhaId || '',
@@ -399,6 +589,265 @@ professionalRouter.patch('/availability', async (req: AuthedRequest, res, next) 
     });
     await audit(req.user!.id, 'professional.availability', body);
     res.json({ available: user.available, acceptPriority: user.acceptPriority });
+  } catch (e) {
+    next(e);
+  }
+});
+
+professionalRouter.get('/patients/:id/recordings/:recordingId/file', async (req: AuthedRequest, res, next) => {
+  try {
+    const patient = await prisma.user.findFirst({
+      where: { id: String(req.params.id), role: Role.USER },
+      include: { contactConsent: true },
+    });
+    if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+    if (!patient.contactConsent?.allowWellbeingSummary && !patient.anonymous) {
+      return res.status(403).json({ error: 'Video not shared under current consent.' });
+    }
+
+    const recording = await prisma.auditLog.findFirst({
+      where: {
+        id: String(req.params.recordingId),
+        userId: patient.id,
+        action: 'conversation.recording.created',
+      },
+    });
+    if (!recording) return res.status(404).json({ error: 'Recording not found.' });
+
+    let detail: { path?: string; mimeType?: string } = {};
+    try {
+      detail = JSON.parse(recording.detailJson || '{}') as typeof detail;
+    } catch {
+      detail = {};
+    }
+    if (!detail.path) return res.status(404).json({ error: 'Recording not found.' });
+    const resolved = path.resolve(detail.path);
+    if (!resolved.startsWith(conversationUploadDir)) {
+      return res.status(404).json({ error: 'Recording not found.' });
+    }
+
+    res.type(detail.mimeType || 'video/webm').sendFile(resolved, (error) => {
+      if (error && !res.headersSent) next(error);
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+professionalRouter.post('/patients/:id/messages', async (req: AuthedRequest, res, next) => {
+  try {
+    const body = z.object({ message: z.string().min(1).max(4000) }).parse(req.body ?? {});
+    const patient = await prisma.user.findFirst({
+      where: { id: req.params.id, role: Role.USER },
+    });
+    if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+
+    const message = await prisma.careMessage.create({
+      data: {
+        patientId: patient.id,
+        clinicianId: req.user!.id,
+        body: body.message.trim(),
+        kind: 'message',
+      },
+    });
+
+    let emailStatus: string | null = null;
+    let emailMessage: string | null = null;
+    if (patient.email) {
+      try {
+        const note = await notificationService.notifyCareMessage({
+          patientId: patient.id,
+          to: patient.email,
+          clinicianName: req.user!.displayName || 'Your counsellor',
+          message: body.message.trim(),
+        });
+        emailStatus = note.status;
+        emailMessage = note.message;
+        await audit(req.user!.id, 'notification.email', {
+          notificationId: note.id,
+          to: patient.email,
+          status: note.status,
+          type: 'CARE_MESSAGE',
+        });
+      } catch (err) {
+        console.warn('Care message email failed:', (err as Error).message);
+        emailStatus = 'failed';
+        emailMessage = (err as Error).message;
+      }
+    }
+
+    await audit(req.user!.id, 'professional.patient_message', { patientId: patient.id, messageId: message.id });
+    res.status(201).json({
+      id: message.id,
+      emailStatus,
+      emailTo: patient.email,
+      message:
+        patient.email
+          ? emailStatus === 'sent'
+            ? 'Message saved and email sent to the patient.'
+            : emailStatus === 'logged'
+              ? `Message saved. ${emailMessage || 'Email logged on server (set NOTIFICATION_MODE=live + RESEND_API_KEY to send).'}`
+              : `Message saved. Email status: ${emailStatus}.`
+          : 'Message saved for the patient. No email on file.',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+professionalRouter.post('/patients/:id/schedule', async (req: AuthedRequest, res, next) => {
+  try {
+    const body = z
+      .object({
+        date: z.string().min(4),
+        time: z.string().min(1),
+        mode: z.enum(['Phone', 'Video meet']),
+        note: z.string().max(1000).optional(),
+      })
+      .parse(req.body ?? {});
+
+    const patient = await prisma.user.findFirst({
+      where: { id: req.params.id, role: Role.USER },
+    });
+    if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+
+    const clinicianName = req.user!.displayName || 'Your counsellor';
+    const displayDate = formatScheduleDate(body.date);
+    const displayTime = formatScheduleTime(body.time);
+    const placeName = `Scheduled ${body.mode.toLowerCase()} with ${clinicianName}`;
+    const appt = await prisma.appointment.create({
+      data: {
+        userId: patient.id,
+        clinicianId: req.user!.id,
+        placeName,
+        clinician: clinicianName,
+        date: displayDate,
+        time: displayTime,
+        mode: body.mode,
+        status: AppointmentStatus.CONFIRMED,
+      },
+    });
+
+    const noteText = body.note?.trim() || undefined;
+    const text = [
+      `${clinicianName} scheduled a ${body.mode.toLowerCase()} with you.`,
+      `Date: ${displayDate}`,
+      `Time: ${displayTime}`,
+      noteText ? `Note: ${noteText}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const careMessage = await prisma.careMessage.create({
+      data: {
+        patientId: patient.id,
+        clinicianId: req.user!.id,
+        body: text,
+        kind: 'schedule',
+        metaJson: JSON.stringify({
+          appointmentId: appt.id,
+          date: displayDate,
+          time: displayTime,
+          mode: body.mode,
+        }),
+      },
+    });
+
+    let emailStatus: string | null = null;
+    let emailMessage: string | null = null;
+    let clinicianEmailStatus: string | null = null;
+
+    if (patient.email) {
+      try {
+        const note = await notificationService.notifyScheduledCall({
+          patientId: patient.id,
+          to: patient.email,
+          patientName: patient.displayName,
+          date: displayDate,
+          time: displayTime,
+          mode: body.mode,
+          clinicianName,
+          note: noteText,
+          appointmentId: appt.id,
+        });
+        emailStatus = note.status;
+        emailMessage = note.message;
+        await audit(req.user!.id, 'notification.email', {
+          notificationId: note.id,
+          to: patient.email,
+          status: note.status,
+          type: 'CALL_SCHEDULED',
+        });
+      } catch (err) {
+        console.warn('Schedule patient email failed:', (err as Error).message);
+        emailStatus = 'failed';
+        emailMessage = (err as Error).message;
+      }
+    }
+
+    if (req.user!.email) {
+      try {
+        const clinicianNote = await notificationService.notifyScheduledCallClinician({
+          clinicianId: req.user!.id,
+          to: req.user!.email,
+          clinicianName,
+          patientName: patient.displayName || patient.email || 'Patient',
+          date: displayDate,
+          time: displayTime,
+          mode: body.mode,
+          note: noteText,
+          appointmentId: appt.id,
+        });
+        clinicianEmailStatus = clinicianNote.status;
+        await audit(req.user!.id, 'notification.email', {
+          notificationId: clinicianNote.id,
+          to: req.user!.email,
+          status: clinicianNote.status,
+          type: 'CALL_SCHEDULED_CLINICIAN',
+        });
+      } catch (err) {
+        console.warn('Schedule clinician email failed:', (err as Error).message);
+        clinicianEmailStatus = 'failed';
+      }
+    }
+
+    await audit(req.user!.id, 'professional.schedule_call', {
+      patientId: patient.id,
+      appointmentId: appt.id,
+      messageId: careMessage.id,
+    });
+
+    const patientEmailLine = patient.email
+      ? emailStatus === 'sent'
+        ? 'Email sent to the patient.'
+        : emailStatus === 'logged'
+          ? emailMessage || 'Patient email logged on server.'
+          : `Patient email status: ${emailStatus}.`
+      : 'No patient email on file.';
+    const clinicianEmailLine =
+      clinicianEmailStatus === 'sent'
+        ? ' Confirmation emailed to you.'
+        : clinicianEmailStatus === 'logged'
+          ? ' Confirmation logged for you.'
+          : '';
+
+    res.status(201).json({
+      appointment: {
+        id: appt.id,
+        place: appt.placeName,
+        clinician: appt.clinician,
+        date: appt.date,
+        time: appt.time,
+        mode: appt.mode,
+        status: 'Confirmed',
+        patientId: patient.id,
+      },
+      messageId: careMessage.id,
+      emailStatus,
+      emailTo: patient.email,
+      clinicianEmailStatus,
+      message: `Call scheduled. ${patientEmailLine}${clinicianEmailLine}`,
+    });
   } catch (e) {
     next(e);
   }

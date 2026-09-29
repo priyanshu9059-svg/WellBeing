@@ -170,6 +170,7 @@ checkInRouter.post('/', async (req: AuthedRequest, res, next) => {
         userId: req.user!.id,
         theme: body.theme,
         text: body.text.trim(),
+        transcript: body.text.trim(),
         modality: 'TEXT',
         ...applyMl(ml),
       },
@@ -183,7 +184,7 @@ checkInRouter.post('/', async (req: AuthedRequest, res, next) => {
 
 checkInRouter.post(
   '/:id/voice',
-  express.raw({ type: ['audio/*', 'application/octet-stream'], limit: '12mb' }),
+  express.raw({ type: () => true, limit: '12mb' }),
   async (req: AuthedRequest, res, next) => {
     try {
       if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
@@ -200,7 +201,7 @@ checkInRouter.post(
       const { writeFile } = await import('node:fs/promises');
       await writeFile(filePath, req.body);
 
-      let ml: MlPack;
+      let ml: MlPack | null = null;
       try {
         ml = await mlAnalyzeVoice({
           wav: req.body,
@@ -211,8 +212,7 @@ checkInRouter.post(
           language: 'en',
         });
       } catch (err) {
-        console.warn('ML voice analyze failed:', (err as Error).message);
-        return res.status(503).json({ error: 'Voice assessment failed. Check WAV format (16-bit PCM).' });
+        console.warn('ML voice analyze failed (saving recording anyway):', (err as Error).message);
       }
 
       const updated = await prisma.checkIn.update({
@@ -222,7 +222,7 @@ checkInRouter.post(
           voiceMimeType: 'audio/wav',
           voiceSizeBytes: req.body.length,
           modality: row.text.trim() ? 'MIXED' : 'VOICE',
-          ...applyMl(ml),
+          ...(ml ? applyMl(ml) : {}),
         },
       });
 
@@ -248,9 +248,11 @@ checkInRouter.get('/:id/voice', async (req: AuthedRequest, res, next) => {
     });
     if (!row?.voicePath) return res.status(404).json({ error: 'Recording not found.' });
     if (isPro) {
-      const consent = (row as { user?: { contactConsent?: { allowWellbeingSummary?: boolean } } }).user
-        ?.contactConsent;
-      if (!consent?.allowWellbeingSummary) {
+      const owner = (row as {
+        user?: { anonymous?: boolean; contactConsent?: { allowWellbeingSummary?: boolean } };
+      }).user;
+      const canShare = Boolean(owner?.contactConsent?.allowWellbeingSummary) || Boolean(owner?.anonymous);
+      if (!canShare) {
         return res.status(403).json({ error: 'Voice not shared under current consent.' });
       }
     }

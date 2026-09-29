@@ -9,8 +9,7 @@ import { generateChatReply, screenRisk } from '../services/wellbeing.js';
 import {
   deleteAriaSession,
   riskToUrgency,
-  sendAriaMessage,
-  startAriaSession,
+  sendAriaMessageResilient,
 } from '../services/aria.js';
 
 export const chatRouter = Router();
@@ -45,16 +44,6 @@ function crisisActions() {
   ];
 }
 
-async function ensureAriaSession(conversationId: string, existing?: string | null) {
-  if (existing) return existing;
-  const started = await startAriaSession();
-  await prisma.conversation.update({
-    where: { id: conversationId },
-    data: { ariaSessionId: started.sessionId, title: 'Aria · wellbeing companion' },
-  });
-  return started.sessionId;
-}
-
 async function buildReply(
   message: string,
   conversationId: string,
@@ -63,8 +52,14 @@ async function buildReply(
   history: Array<{ role: 'user' | 'assistant'; text: string }>,
 ) {
   try {
-    const sessionId = await ensureAriaSession(conversationId, ariaSessionId);
-    const aria = await sendAriaMessage(sessionId, message);
+    const aria = await sendAriaMessageResilient(ariaSessionId, message);
+    if (aria.sessionId !== ariaSessionId) {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { ariaSessionId: aria.sessionId, title: 'Aria · wellbeing companion' },
+      });
+    }
+
     const urgency = riskToUrgency(aria.riskLevel);
     const softFail = /trouble reaching my thinking systems/i.test(aria.reply);
     let text = aria.reply;
@@ -74,6 +69,7 @@ async function buildReply(
     let source: 'aria' | 'openai' | 'fallback' = 'aria';
 
     if (softFail) {
+      console.warn('Aria soft-fail reply detected; trying OpenAI/heuristic fallback.');
       const fallback = await generateChatReply(message, history, language);
       text = fallback.text;
       choices = fallback.choices;
@@ -90,7 +86,7 @@ async function buildReply(
       riskLevel: aria.riskLevel,
       confidence: aria.confidence,
       source,
-      ariaSessionId: sessionId,
+      ariaSessionId: aria.sessionId,
       crisis: aria.riskLevel === 'crisis',
     };
   } catch (err) {
@@ -253,7 +249,7 @@ chatRouter.post('/feedback', async (req: AuthedRequest, res, next) => {
   }
 });
 
-chatRouter.post('/recordings', express.raw({ type: ['video/*', 'audio/*', 'application/octet-stream'], limit: '80mb' }), async (req: AuthedRequest, res, next) => {
+chatRouter.post('/recordings', express.raw({ type: () => true, limit: '80mb' }), async (req: AuthedRequest, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ error: 'Recording file is required.' });
     const mimeType = req.headers['content-type'] || 'application/octet-stream';
