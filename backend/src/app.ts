@@ -14,11 +14,16 @@ import { analyticsRouter, emergencyRouter, notificationRouter } from './routes/m
 
 export function createApp() {
   const app = express();
-  const origin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+  const origins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    ...(process.env.CORS_ORIGIN || '').split(','),
+    process.env.FRONTEND_URL || '',
+  ].map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean);
 
   app.use(
     cors({
-      origin: origin.split(',').map((s) => s.trim()),
+      origin: [...new Set(origins)],
       credentials: true,
     }),
   );

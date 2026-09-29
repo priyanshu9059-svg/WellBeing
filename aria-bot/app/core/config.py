@@ -48,9 +48,10 @@ class Settings(BaseSettings):
 
     # ── CORS ────────────────────────────────────────────────────────────────
     cors_origins: List[str] = Field(
-        default=["*"],
-        description="Allowed CORS origins. Restrict in production.",
+        default=["http://localhost:3000", "http://localhost:5173"],
+        description="Additional allowed CORS origins.",
     )
+    frontend_url: str = Field(default="", description="Deployed frontend origin")
 
     # ── Application ─────────────────────────────────────────────────────────
     app_title: str = Field(default="PsychBot API")

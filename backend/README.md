@@ -20,7 +20,8 @@ Listens on `http://localhost:4000`.
 | `DATABASE_URL` | Prisma SQLite path (`file:./dev.db`) |
 | `JWT_SECRET` | JWT signing secret |
 | `PORT` | HTTP port (default 4000) |
-| `CORS_ORIGIN` | Allowed frontend origin |
+| `CORS_ORIGIN` | Additional allowed frontend origins, comma separated |
+| `FRONTEND_URL` | Deployed frontend origin, for example `https://your-project.vercel.app` (no trailing path) |
 | `OPENAI_API_KEY` | Optional live chat replies |
 | `NOTIFICATION_MODE` | `log` (default) or provider hook |
 

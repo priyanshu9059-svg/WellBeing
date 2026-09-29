@@ -211,7 +211,8 @@ curl http://localhost:8000/health
 | `HTTP_MAX_RETRIES` | `3` | Retry attempts on failure |
 | `HTTP_RETRY_BASE_DELAY` | `1.0` | Exponential backoff base delay (s) |
 | `MAX_HISTORY_MESSAGES` | `20` | Rolling window of messages per session |
-| `CORS_ORIGINS` | `["*"]` | Allowed CORS origins |
+| `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:5173"]` | Additional allowed CORS origins |
+| `FRONTEND_URL` | empty | Deployed frontend origin, for example `https://your-project.vercel.app` |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `DEBUG` | `false` | FastAPI debug mode |
 
