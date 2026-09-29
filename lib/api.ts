@@ -52,7 +52,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   const rawBody = typeof Blob !== 'undefined' && options.body instanceof Blob;
-  if (options.body !== undefined && !rawBody) headers['Content-Type'] = 'application/json';
+  if (rawBody) {
+    const blob = options.body as Blob;
+    headers['Content-Type'] = blob.type || 'application/octet-stream';
+  } else if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (options.auth !== false) {
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -69,7 +74,14 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   if (options.responseType === 'blob') return (await res.blob()) as T;
 
   const text = await res.text();
-  const data = text ? (JSON.parse(text) as unknown) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      data = { error: text.slice(0, 200) };
+    }
+  }
   if (!res.ok) {
     const message =
       data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string'

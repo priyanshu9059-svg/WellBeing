@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BriefcaseMedical, ClipboardList, HeartHandshake, History, House, Leaf, MapPinned, Menu, MessageCircle, Settings, Shield, ShieldCheck, UserRound, X } from 'lucide-react';
+import { BriefcaseMedical, ClipboardList, HeartHandshake, History, House, Leaf, Mail, MapPinned, Menu, MessageCircle, Settings, Shield, ShieldCheck, UserRound, X } from 'lucide-react';
 import { CrisisSheet } from './crisis-sheet';
 import { PwaRegister } from './pwa-register';
 import { brand } from '@/config/brand';
@@ -15,6 +15,7 @@ const nav = [
   {href:'/support',labelKey:'supportHome',icon:HeartHandshake},
   {href:'/check-in',labelKey:'checkIn',icon:ClipboardList},
   {href:'/history',labelKey:'history',icon:History},
+  {href:'/messages',labelKey:'careMessages',icon:Mail},
   {href:'/wellbeing',labelKey:'wellbeing',icon:MessageCircle},
   {href:'/exercises',labelKey:'exercises',icon:Leaf},
   {href:'/consultancy',labelKey:'findCare',icon:MapPinned},

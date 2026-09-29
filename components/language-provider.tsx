@@ -16,6 +16,7 @@ export type TranslationKey =
   | 'wellbeing'
   | 'checkIn'
   | 'history'
+  | 'careMessages'
   | 'findCare'
   | 'safetyPlan'
   | 'privacy'
@@ -39,6 +40,8 @@ export type TranslationKey =
   | 'checkInDescription'
   | 'historyTitle'
   | 'historyDescription'
+  | 'careMessagesTitle'
+  | 'careMessagesDescription'
   | 'consultancyTitle'
   | 'consultancyDescription'
   | 'professionalTitle'
@@ -155,6 +158,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     wellbeing: 'Wellbeing',
     checkIn: 'Check-in',
     history: 'History',
+    careMessages: 'Care messages',
     findCare: 'Find care',
     safetyPlan: 'Safety plan',
     privacy: 'Privacy',
@@ -178,6 +182,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     checkInDescription: 'Share a note or voice about how you are coping. ML scores help counsellors monitor distress.',
     historyTitle: 'Your history',
     historyDescription: 'Check-ins, scores, voice notes, and scheduled appointments in one timeline.',
+    careMessagesTitle: 'Care messages',
+    careMessagesDescription: 'Messages and scheduled calls from your counsellor.',
     consultancyTitle: 'Find care near you',
     consultancyDescription: 'Explore nearby professional support and manage appointment requests in one place.',
     professionalTitle: 'Professional care workspace',
@@ -293,6 +299,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     wellbeing: 'वेलबीइंग',
     checkIn: 'चेक-इन',
     history: 'इतिहास',
+    careMessages: 'केयर संदेश',
     findCare: 'देखभाल खोजें',
     safetyPlan: 'सुरक्षा योजना',
     privacy: 'गोपनीयता',
@@ -316,6 +323,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     checkInDescription: 'नोट या आवाज़ से बताएं कि आप कैसा महसूस कर रहे हैं। ML स्कोर counsellor को मदद करते हैं।',
     historyTitle: 'आपका इतिहास',
     historyDescription: 'चेक-इन, स्कोर, आवाज़ और appointments एक timeline में।',
+    careMessagesTitle: 'केयर संदेश',
+    careMessagesDescription: 'काउंसलर के संदेश और निर्धारित कॉल यहाँ दिखेंगे।',
     consultancyTitle: 'अपने पास देखभाल खोजें',
     consultancyDescription: 'पास की professional support देखें और appointments एक जगह manage करें।',
     professionalTitle: 'प्रोफेशनल केयर वर्कस्पेस',
@@ -431,6 +440,7 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     wellbeing: 'Wellbeing',
     checkIn: 'Check-in',
     history: 'History',
+    careMessages: 'Care messages',
     findCare: 'Find care',
     safetyPlan: 'Safety plan',
     privacy: 'Privacy',
@@ -454,6 +464,8 @@ const dictionaries: Record<Language, Record<TranslationKey, string>> = {
     checkInDescription: 'Note ya voice se batao aap kaise feel kar rahe ho. ML scores counsellor ko monitor karne mein madad karte hain.',
     historyTitle: 'Aapka history',
     historyDescription: 'Check-ins, scores, voice aur appointments ek timeline mein.',
+    careMessagesTitle: 'Care messages',
+    careMessagesDescription: 'Counsellor ke messages aur scheduled calls yahan dikhenge.',
     consultancyTitle: 'Nearby care find karo',
     consultancyDescription: 'Nearby professional support explore karo aur appointment requests manage karo.',
     professionalTitle: 'Professional care workspace',

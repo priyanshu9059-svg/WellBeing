@@ -217,11 +217,14 @@ export function ConsultancyHub(){
   const [placesMessage,setPlacesMessage]=useState('Search an area to see nearby services here.');
   const [sort,setSort]=useState<'distance'|'rating'>('distance');
   const serviceNodeRef=useRef<HTMLDivElement|null>(null);
-  const [appointments,setAppointments]=useState<Appointment[]>(()=>typeof window === 'undefined' ? initialAppointments : loadCachedAppointments());
+  const [appointments,setAppointments]=useState<Appointment[]>(initialAppointments);
   const [date,setDate]=useState('2026-09-18');
   const [time,setTime]=useState('11:00 AM');
   const [mode,setMode]=useState('In person');
   const saveAppointments=(next:Appointment[])=>{setAppointments(next);try{localStorage.setItem(APPOINTMENTS_KEY,JSON.stringify(next))}catch{}};
+  useEffect(()=>{
+    setAppointments(loadCachedAppointments());
+  },[]);
   const searchArea = coords || activeLocation;
   const categoryText = filter === 'All' ? 'mental health clinic hospital police station trauma support NGO' : categoryQueries[filter];
   const mapSearch = encodeURIComponent(`${query || categoryText} near ${searchArea}`);
@@ -324,7 +327,26 @@ export function ConsultancyHub(){
   }
 
   const useLocation=()=>{if(!navigator.geolocation){setLocationMessage('Location is not available in this browser.');return}setLocationMessage('Finding your area...');navigator.geolocation.getCurrentPosition((position)=>{const next=`${position.coords.latitude.toFixed(5)},${position.coords.longitude.toFixed(5)}`;setCoords(next);setActiveLocation('Current location');setLocation('Current location');setLocationMessage('Map centred near your current location.')},()=>setLocationMessage('Location was not shared. You can search an area instead.'))};
-  const confirmBooking=async()=>{if(!booking)return;setBookingError(null);const formatted=new Date(`${date}T12:00:00`).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});const clinician=booking.type==='Hospitals'?'Available hospital desk':'Available care professional';const local:Appointment={id:String(Date.now()),place:booking.name,clinician,date:formatted,time,mode,status:'Confirmed'};if(isApiEnabled()){try{const created=await services.care.bookAppointment({placeId:booking.id,placeName:booking.name,clinician,date:formatted,time,mode});saveAppointments([mapAppointment(created),...appointments]);setBooked(true);return}catch(e){setBookingError(e instanceof Error?e.message:'Booking failed.');}}saveAppointments([local,...appointments]);setBooked(true)};
+  const confirmBooking=async()=>{
+    if(!booking)return;
+    setBookingError(null);
+    const formatted=new Date(`${date}T12:00:00`).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const clinician=booking.type==='Hospitals'?'Available hospital desk':'Available care professional';
+    const local:Appointment={id:String(Date.now()),place:booking.name,clinician,date:formatted,time,mode,status:'Confirmed'};
+    if(isApiEnabled()){
+      try{
+        const placeId = booking.id.startsWith('osm-') || booking.id.startsWith('ChIJ') ? undefined : booking.id;
+        const created=await services.care.bookAppointment({placeId,placeName:booking.name,clinician,date:formatted,time,mode});
+        saveAppointments([mapAppointment(created),...appointments]);
+        setBooked(true);
+        return;
+      }catch(e){
+        setBookingError(e instanceof Error?e.message:'Booking failed.');
+      }
+    }
+    saveAppointments([local,...appointments]);
+    setBooked(true);
+  };
 
   return <div className="consultancy-hub">
     <div ref={serviceNodeRef} hidden/>

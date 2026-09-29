@@ -86,13 +86,35 @@ export interface CareService {
   listAppointments(signal?: AbortSignal): Promise<AppointmentDto[]>;
   bookAppointment(input: BookAppointmentInput, signal?: AbortSignal): Promise<AppointmentDto>;
   updateAppointment(id: string, status: AppointmentDto['status'], signal?: AbortSignal): Promise<{ id: string; status: string }>;
+  listCareMessages?(signal?: AbortSignal): Promise<CareMessageDto[]>;
 }
 export interface ProfessionalService {
   dashboard(signal?: AbortSignal): Promise<ProfessionalDashboard>;
   replyQuery(id: string, reply: string, signal?: AbortSignal): Promise<void>;
   resolveQuery(id: string, signal?: AbortSignal): Promise<void>;
   setAvailability(input: { available?: boolean; acceptPriority?: boolean }, signal?: AbortSignal): Promise<void>;
+  messagePatient?(patientId: string, message: string, signal?: AbortSignal): Promise<{ id: string; message: string; emailStatus?: string | null; emailTo?: string | null }>;
+  schedulePatientCall?(
+    patientId: string,
+    input: { date: string; time: string; mode: 'Phone' | 'Video meet'; note?: string },
+    signal?: AbortSignal,
+  ): Promise<{ message: string; emailStatus?: string | null; emailTo?: string | null }>;
+  notifications?(signal?: AbortSignal): Promise<EmailNotificationLog[]>;
 }
+
+export type EmailNotificationLog = {
+  id: string;
+  to: string;
+  notificationType: string;
+  subject: string | null;
+  body: string | null;
+  status: string;
+  providerMessageId: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+  patientName?: string;
+  patientId?: string;
+};
 
 export type AuthUser = {
   id: string;
@@ -188,12 +210,23 @@ export type BookAppointmentInput = {
   mode: string;
 };
 
+export type CareMessageDto = {
+  id: string;
+  body: string;
+  kind: string;
+  meta: Record<string, unknown>;
+  clinicianName: string;
+  createdAt: string;
+  readAt?: string | null;
+};
+
 export type ProfessionalDashboard = {
   professional: { id: string; displayName: string | null; role: string };
   metrics: { queue: number; callsToday: number; openQueries: number; responseMinutes: number };
   patients: Array<{
     id: string;
     name: string;
+    anonymous?: boolean;
     score: number;
     level: string;
     signal: string;
@@ -204,6 +237,13 @@ export type ProfessionalDashboard = {
     riskLevel?: string | null;
     confidence?: number | null;
     checkIns?: CheckInDto[];
+    videoRecordings?: Array<{
+      id: string;
+      filename: string;
+      sizeBytes: number;
+      mimeType: string;
+      createdAt: string;
+    }>;
     profile?: PatientProfile;
   }>;
   queries: Array<{ id: string; patient: string; text: string; age: string; priority: string; status: string }>;
@@ -238,6 +278,11 @@ export type CheckInDto = {
   stressScore?: number | null;
   emotionLabel?: string | null;
   factors?: string[];
+  emotions?: Record<string, number>;
+  recommendations?: string[];
+  signals?: Record<string, boolean>;
+  method?: string | null;
+  fallback?: boolean;
   createdAt: string;
   userId?: string;
 };
@@ -289,13 +334,16 @@ const supportiveReply = (message: string, language: Language = 'English') => {
   const care = /(nearby|clinic|hospital|psychiatrist|psychologist|therapy|therapist|ngo|centre|center|care)/.test(lower);
   const general = /(what can you do|who are you|help me|start|begin|hello|hi|hey|namaste)/.test(lower);
   const plan = /(plan|small plan|10 minute|priority|pressure)/.test(lower);
+  const smallStep = /(small thing|one small|try right now|something to try|coping step)/.test(lower);
   const stuck = /(stuck|cannot figure|where to start|atak|अटक)/.test(lower);
   const pause = /(break|guilty|pause|rest|आराम|विराम)/.test(lower);
-  const listen = /(listen|just listen|sun|सुन)/.test(lower);
-  const feeling = /(feeling|emotion|understand what i am feeling|name this feeling|triggered)/.test(lower);
+  const listen = /(listen|just listen|do not need advice|sun|सुन)/.test(lower);
+  const feeling = /(feeling|emotion|understand what i am feeling|understanding what i am feeling|name this feeling|triggered)/.test(lower);
+  const sad = /\b(sad|sadness|down|low|empty|numb)\b/.test(lower);
   if (language === 'Hindi') {
     if (general) return 'मैं यहां हूं। आप कोई भी सवाल पूछ सकते हैं, या हम यह चुनकर शुरू कर सकते हैं कि अभी किस तरह की मदद चाहिए।';
     if (care) return 'पास की सहायता खोजने के लिए Find care खोलें। वहां city या current location से mental health clinics, hospitals और police stations देख सकते हैं।';
+    if (smallStep) return 'एक छोटा सा कदम: 60 सेकंड के लिए पैर ज़मीन पर रखें, सांस अंदर 4 गिनती और बाहर 6 गिनती लें, जबड़े को ढीला करें। फिर बताएं—क्या शरीर थोड़ा हल्का लगा?';
     if (plan) return 'ठीक है, इसे छोटा रखते हैं: पहले 2 मिनट में काम लिखें, फिर 10 मिनट के लिए सबसे आसान काम शुरू करें। अभी सबसे छोटा पहला काम कौन सा है?';
     if (stuck) return 'जब सब कुछ एक साथ दिखता है तो शुरुआत मुश्किल लगती है। अभी सिर्फ एक काम चुनें जो 5-10 मिनट में शुरू हो सके।';
     if (pause) return 'Break लेना avoid करना नहीं है, nervous system को reset करना है। 3 मिनट पानी, धीमी सांस, और screen से नजर हटाकर वापस आएं।';
@@ -309,6 +357,7 @@ const supportiveReply = (message: string, language: Language = 'English') => {
   if (language === 'Hinglish') {
     if (general) return 'Main yahan hoon. Aap koi bhi question pooch sakte ho, ya hum choose kar sakte hain ki abhi kis type ki help chahiye.';
     if (care) return 'Nearby support ke liye Find care open karo. Wahan city ya current location se mental health clinics, hospitals aur police stations milenge.';
+    if (smallStep) return 'Chhota step try karo: 60 seconds pair zameen par, saans andar 4 aur bahar 6, jaw relax. Phir batao—body thoda soft feel hua?';
     if (plan) return 'Theek hai, chhota plan banate hain: 2 minutes mein tasks likho, phir 10 minutes ke liye sabse easy task start karo. Abhi sabse chhota first step kya ho sakta hai?';
     if (stuck) return 'Jab sab kuch ek saath dikhta hai, start karna hard lagta hai. Abhi sirf ek 5-10 minute wala step choose karo; complete karna zaroori nahi.';
     if (pause) return 'Break lena avoid karna nahi hai; body ko reset dena hai. 3 minutes water, slow breathing, aur screen se nazar hatao, phir wapas aao.';
@@ -321,11 +370,13 @@ const supportiveReply = (message: string, language: Language = 'English') => {
   }
   if (general) return 'I can answer general questions, listen to what you are going through, suggest small coping steps, and point you toward urgent or nearby support when safety or health is involved.';
   if (care) return 'I can help you look for nearby support. Use Find care to search by city or current location, then filter mental health clinics, hospitals, or police stations.';
+  if (smallStep) return 'Try this for 60 seconds: put both feet on the floor, exhale longer than you inhale (in for 4, out for 6), and loosen your jaw. After that, tell me whether your body feels even 5% softer.';
   if (plan) return 'Let’s make this practical. Write every task down for two minutes, pick the easiest useful one, work on it for ten minutes, then pause and choose the next step.';
   if (stuck) return 'Feeling stuck usually means the problem is too large to hold at once. Let’s shrink it: choose one action that takes 5-10 minutes and does not need to be perfect.';
   if (pause) return 'A short break is not failure; it is a reset. Try three minutes away from the screen, sip water, relax your jaw and shoulders, then return to one small next step.';
   if (listen) return 'I’m listening. No advice first: tell me the part that feels heaviest, and I’ll reflect it back clearly.';
   if (feeling) return 'Let’s name it gently. Does this feel closer to fear, sadness, anger, shame, exhaustion, or a mix of several?';
+  if (sad) return 'Sadness can sit heavy and quiet. If it helps, name one moment today that felt hardest—or one thing that still feels a little okay.';
   return exam
     ? 'It sounds like the pressure around your exams is taking up a lot of space. What feels most difficult about it right now?'
     : sleep
@@ -443,7 +494,7 @@ export const mockServices = {
   voiceTranscription: <VoiceTranscriptionService>{
     async transcribe(_blob, signal) {
       await delay(250, signal);
-      return 'Prototype transcript: I would like someone to listen.';
+      return '';
     },
   },
   voiceAnalysis: <VoiceAnalysisService>{
@@ -878,6 +929,9 @@ export const apiServices = {
         signal,
       });
     },
+    async listCareMessages(signal) {
+      return apiAuthed<CareMessageDto[]>('/api/care/messages', { signal });
+    },
   },
   professional: <ProfessionalService>{
     async dashboard(signal) {
@@ -895,6 +949,23 @@ export const apiServices = {
     },
     async setAvailability(input, signal) {
       await apiAuthed('/api/professional/availability', { method: 'PATCH', body: input, signal });
+    },
+    async messagePatient(patientId, message, signal) {
+      return apiAuthed(`/api/professional/patients/${patientId}/messages`, {
+        method: 'POST',
+        body: { message },
+        signal,
+      });
+    },
+    async schedulePatientCall(patientId, input, signal) {
+      return apiAuthed(`/api/professional/patients/${patientId}/schedule`, {
+        method: 'POST',
+        body: input,
+        signal,
+      });
+    },
+    async notifications(signal) {
+      return apiAuthed<EmailNotificationLog[]>('/api/professional/notifications', { signal });
     },
   },
   checkIns: <CheckInService>{
