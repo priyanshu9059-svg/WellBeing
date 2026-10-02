@@ -1,0 +1,67 @@
+databases:
+  - name: wellbeing-db
+    databaseName: wellbeing
+    user: wellbeing
+
+services:
+  - type: web
+    name: wellbeing-api
+    runtime: node
+    plan: starter
+    rootDir: Backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: wellbeing-uploads
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wellbeing-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: ARIA_BASE_URL
+        fromService:
+          type: pserv
+          name: wellbeing-aria
+          property: hostport
+      - key: ML_BASE_URL
+        fromService:
+          type: pserv
+          name: wellbeing-ml
+          property: hostport
+
+  - type: pserv
+    name: wellbeing-aria
+    runtime: python
+    plan: starter
+    rootDir: Backend/aria-bot
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+  - type: pserv
+    name: wellbeing-ml
+    runtime: python
+    plan: starter
+    rootDir: Backend/ml-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PORT
+        value: 10000

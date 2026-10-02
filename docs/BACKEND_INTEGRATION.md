@@ -1,6 +1,6 @@
 # Backend integration map
 
-The Express API in `backend/` implements the contracts in `services/index.ts`. The frontend uses `getServices()` which selects `apiServices` when `NEXT_PUBLIC_API_BASE_URL` is set, otherwise local mocks.
+The Express API in `Backend/` implements the contracts in `Frontend/services/index.ts`. The frontend uses `getServices()` which selects `apiServices` when `NEXT_PUBLIC_API_BASE_URL` is set, otherwise local mocks.
 
 | Interface | Implementation |
 |---|---|
@@ -22,7 +22,7 @@ The Express API in `backend/` implements the contracts in `services/index.ts`. T
 
 ## Integration rules
 
-1. Keep API keys server-side (`backend/.env`).
+1. Keep API keys server-side (`Backend/.env`).
 2. Preserve independent contact and wellbeing-summary consent.
 3. Version privacy policy, consent language, and retention rules for production.
 4. Re-verify regional crisis resources before release.

@@ -1,88 +1,46 @@
-# Wellbeing Support
+# WellBeing Support
 
-Full-stack mental wellbeing support app: React/Vinext frontend, Express API, and Prisma/SQLite database. Anonymous access by default, with a professional care portal and organization codes.
+The project is split into two deployable folders:
 
-## Quick start
+| Folder | Deploy to | Contents |
+| --- | --- | --- |
+| [`Frontend/`](Frontend/) | Vercel | Next.js pages, components, styles, public assets, and API client |
+| [`Backend/`](Backend/) | Render | Express API, Prisma database schema, Aria chatbot, and ML service |
 
-Requirements: Node.js 22.13+.
+## Deploy
 
-```bash
-# 1) Frontend deps
-npm install
+1. Push this repository to GitHub, GitLab, or Bitbucket.
+2. In Vercel, import the repository. Set **Root Directory** to `Frontend`, and keep the detected **Next.js** framework and default build settings. The first deployment can use local mock mode; copy its final Vercel origin.
+3. In Render, create a **Blueprint** from the same repository. Render reads [`render.yaml`](render.yaml) at the repository root and creates the API, PostgreSQL database, private Aria service, private ML service, and persistent upload storage. The configured API and private services use paid `starter` instances; check Render's current pricing before approving the Blueprint.
+4. During Blueprint setup, enter `FRONTEND_URL` as the Vercel origin (for example, `https://your-project.vercel.app`) and `OPENROUTER_API_KEY` for Aria.
+5. In Vercel project environment variables, set `NEXT_PUBLIC_API_BASE_URL` to the Render API origin (for example, `https://your-api.onrender.com`) and `NEXT_PUBLIC_SITE_URL` to the Vercel origin. Redeploy after setting them. The API URL must be available at build time.
+6. Confirm `https://your-api.onrender.com/api/health` responds, then test a frontend action that saves data. Set or update Render's `FRONTEND_URL` to the exact Vercel origin if browser API requests are blocked by CORS.
 
-# 2) Backend + database
-cd backend
-npm install
-npm run db:setup
-npm run dev
-```
+Do not include `/api` or a trailing slash in `NEXT_PUBLIC_API_BASE_URL`. The frontend appends route paths itself. `FRONTEND_URL` is also an origin without a path. Production database tables are created on API startup by Prisma; demo seed accounts are **not** loaded automatically. The old local SQLite file is not migrated to PostgreSQL by this deployment.
 
-In another terminal:
+The chatbot requires an OpenRouter key for its private Render service. Optional integrations such as live email, OpenAI replies, and ABHA use the variables listed in [`Backend/.env.example`](Backend/.env.example). Uploads use Render's persistent disk at `/var/data/uploads`.
 
-```bash
-# from repo root — uses .env.local pointing at http://localhost:4000
-npm run dev
-```
+## Run locally
 
-Open `http://localhost:3000`. API health: `http://localhost:4000/api/health`.
-
-### Docker (API + DB)
+Start PostgreSQL and the API with Docker:
 
 ```bash
 docker compose up --build
 ```
 
-Then run the frontend with `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000`.
+In another terminal, start the frontend:
 
-## Demo credentials
+```bash
+cd Frontend
+npm ci
+```
 
-| Role | Value |
-|---|---|
-| User | `user@wellbeing.care` / `prototype` |
-| Counsellor | `counsellor@wellbeing.care` / `prototype` |
-| Counsellor (legacy) | `demo@wellbeing.care` / `prototype` |
-| Org codes | `CAMPUS-DEMO`, `TEAM-CARE` |
+Copy `Frontend/.env.example` to `Frontend/.env.local`, then run:
 
-User login: `/login` · Counsellor login: `/professional`
+```bash
+npm run dev
+```
 
-Optional: set `OPENAI_API_KEY` in `backend/.env` for live chat replies (otherwise supportive heuristic replies are used).
+Open `http://localhost:3000`; the API health endpoint is `http://localhost:4000/api/health`. The Docker setup disables Aria and uses the API's built-in chat fallback. To run all services locally, see [`Backend/README.md`](Backend/README.md).
 
-## Architecture
-
-| Layer | Path | Stack |
-|---|---|---|
-| Frontend | `app/`, `features/`, `components/` | React 19, Vinext, Tailwind |
-| API client | `services/`, `lib/api.ts` | Typed services; auto anonymous session |
-| Backend | `backend/src/` | Express 5, JWT auth, Zod validation |
-| Database | `backend/prisma/` | Prisma + SQLite (`dev.db`) |
-
-### Main API routes
-
-- `POST /api/auth/anonymous|signin|signup`, `GET /api/auth/me`
-- `GET|POST|DELETE /api/chat/*`
-- `GET|POST /api/mood`, `GET|POST|PUT|DELETE /api/journal`
-- `GET|PUT /api/safety-plan`, `GET|PUT /api/profile/consent`
-- `POST /api/wellbeing/analyze`, voice + risk endpoints
-- `GET /api/care/places`, appointments CRUD
-- `GET /api/professional/dashboard` (+ query reply/resolve)
-- `POST /api/counsellor/request`, notifications, analytics, emergency resources
-- `POST /api/organizations/validate`, aggregates
-
-Without `NEXT_PUBLIC_API_BASE_URL`, the UI falls back to local mocks/`localStorage`.
-
-## Routes (frontend)
-
-`/`, `/support`, `/chat`, `/mood`, `/journal`, `/exercises`, `/wellbeing`, `/consultancy`, `/professional`, `/safety-plan`, `/crisis`, `/privacy`, `/settings`, `/access-code`, `/organization-demo`, `/trust`, `/about`, `/faq`, `/offline`.
-
-## Safety and scope
-
-- Keyword risk screening is a demonstration and needs clinical validation before production.
-- Phone links require an explicit click; nothing auto-dispatches emergency help.
-- Clinical screeners (PHQ-9/GAD-7) remain disabled until approved.
-- Notifications default to server logging (`NOTIFICATION_MODE=log`) until a real SMS/email provider is configured.
-
-## Documentation
-
-- [Feature status](docs/FEATURE_STATUS.md)
-- [Backend integration map](docs/BACKEND_INTEGRATION.md)
-- [Project logs](docs/PROJECT_LOGS.md)
+The app provides mental wellbeing support, not clinical diagnosis. Its risk screening is a demonstration and needs clinical validation before production use.
